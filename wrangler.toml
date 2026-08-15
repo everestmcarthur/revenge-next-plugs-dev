@@ -1,4 +1,4 @@
-name = "revenge-next-plugs"
+name = "revenge-next-plugs-dev"
 compatibility_date = "2026-08-08"
 account_id = "dc5e308f1df2d6bb5082951d3f3993a5"
 main = "worker/src/index.ts"
@@ -6,18 +6,13 @@ main = "worker/src/index.ts"
 [assets]
 directory = "build/dist"
 binding = "ASSETS"
-# Without this, Cloudflare serves a matching static file (e.g. /index.json, which is a real file
-# Gradle writes to build/dist) BEFORE ever invoking the Worker - meaning /index.json's dynamic D1
-# merge (hidden filtering, stable-channel-as-latest, site-settings overrides) silently never ran
-# for that exact path. Worker always runs first now; its own fallback (env.ASSETS.fetch) still
-# serves genuine static files (the plugin .zip artifacts) for anything it doesn't handle itself.
 run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "revenge-next-plugs"
-database_id = "dacf9207-d24a-4029-bb63-feea62bca6ec"
+database_name = "revenge-next-plugs-dev"
+database_id = "e51523c4-15d3-41c0-af5c-b7a57647450c"
 
 [[routes]]
-pattern = "next.jarviscli.dev"
+pattern = "dev-next.jarviscli.dev"
 custom_domain = true
