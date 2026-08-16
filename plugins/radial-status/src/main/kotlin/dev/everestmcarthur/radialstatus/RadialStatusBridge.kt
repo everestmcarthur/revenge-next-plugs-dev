@@ -1,5 +1,6 @@
 package dev.everestmcarthur.radialstatus
 
+import de.robv.android.xposed.XposedBridge
 import io.github.revenge.plugins.PluginScope
 import io.github.revenge.xposed.api.registerNativeMethod
 
@@ -18,6 +19,9 @@ internal object RadialStatusBridge {
                 val value = (colorText as? String)?.toLongOrNull() ?: continue
                 RingConfig.statusColors[key] = value.toInt()
             }
+            XposedBridge.log(
+                "[RadialStatus] configure: enabled=$enabled thickness=$thickness colors=${RingConfig.statusColors.keys}",
+            )
             null
         }
 
@@ -27,6 +31,8 @@ internal object RadialStatusBridge {
             if (userId != null && status != null) {
                 RingConfig.presenceCache[userId] = status
                 AvatarRingHooks.reapplyForUser(userId)
+            } else {
+                XposedBridge.log("[RadialStatus] setPresence got bad args: $args")
             }
             null
         }

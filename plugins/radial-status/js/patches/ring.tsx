@@ -38,15 +38,24 @@ function pushKnownPresences() {
 		const PresenceStore = (Stores as Record<string, any>).PresenceStore
 		const UserStore = (Stores as Record<string, any>).UserStore
 		const users = UserStore?.getUsers?.()
-		if (!users) return
+		if (!users) {
+			console.log('[RadialStatus] UserStore.getUsers() unavailable')
+			return
+		}
+		let pushed = 0
 		for (const id of Object.keys(users)) {
 			const status = PresenceStore?.getStatus?.(id)
-			if (status) pushPresence(id, status)
+			if (status) {
+				pushPresence(id, status)
+				pushed++
+			}
 		}
+		console.log(`[RadialStatus] pushed ${pushed} known presence(s)`)
 	}, undefined)
 }
 
 export default function patchRing(storage: JsonStorage<RadialStatusStorage>) {
+	console.log('[RadialStatus] native available:', isNativeAvailable())
 	if (!isNativeAvailable()) return () => {}
 
 	configureNative(storage)
