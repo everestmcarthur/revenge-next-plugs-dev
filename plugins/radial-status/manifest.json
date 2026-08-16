@@ -14,6 +14,10 @@
 		}
 	},
 	"dist": {
-		"script": "index.js"
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "dev.everestmcarthur.radialstatus.RadialStatusPlugin"
+		}
 	}
 }

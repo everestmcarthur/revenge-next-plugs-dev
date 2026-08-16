@@ -1,86 +1,73 @@
-import { getModules } from '@revenge-mod/modules/finders'
-import { withProps } from '@revenge-mod/modules/finders/filters'
-import { beforeJSX } from '@revenge-mod/react/jsx-runtime'
+import { Dispatcher } from '@revenge-mod/discord/common/flux'
+import { Stores } from '@revenge-mod/discord/flux'
 import { guard } from '../lib/safe'
 import type { JsonStorage } from '@revenge-mod/json-storage'
-import type { ElementType } from 'react'
 import type { RadialStatusStorage } from '../lib/types'
 
-const CONFIRMED_SIZES = new Set([24, 32, 40, 50, 60, 80])
-
-function tryApplyRing(
-	props: unknown,
-	storage: JsonStorage<RadialStatusStorage>,
-) {
-	if (!storage.cache?.enabled) return
-	if (!props || !Array.isArray((props as any).style)) return
-
-	const wrapper = props as { style: any[]; children?: any[] }
-	if (!Array.isArray(wrapper.children) || wrapper.children.length !== 5) return
-
-	const circleIdx = wrapper.style.findIndex(
-		s =>
-			s &&
-			typeof s.width === 'number' &&
-			s.width === s.height &&
-			s.borderRadius === s.width / 2 &&
-			CONFIRMED_SIZES.has(s.width),
-	)
-	if (circleIdx === -1) return
-
-	const userProps = wrapper.children?.[1]?.props
-	const presenceProps = wrapper.children?.[3]?.props
-	if (!userProps || typeof userProps.user?.id !== 'string') return
-	if (!presenceProps || typeof presenceProps.status !== 'string') return
-
-	const colors = storage.cache?.colors ?? {}
-	const color = colors[presenceProps.status as string]
-	if (!color) return
-
-	const baseSize = wrapper.style[circleIdx].width
-	const thickness = storage.cache?.ringThickness ?? 2
-	const newSize = baseSize + thickness * 2
-
-	presenceProps.size = 0
-	presenceProps.isMobileOnline = false
-	if (presenceProps.style) presenceProps.style.display = 'none'
-	if (userProps.cutout?.nativeCutouts?.[0])
-		userProps.cutout.nativeCutouts[0].size = 0
-
-	wrapper.style[circleIdx] = {
-		width: newSize,
-		height: newSize,
-		borderRadius: newSize / 2,
-		overflow: 'hidden',
+function isNativeAvailable(): boolean {
+	try {
+		return typeof revenge?.modules?.native?.callNativeMethod === 'function'
+	} catch {
+		return false
 	}
-	wrapper.style.push({
-		borderWidth: thickness,
-		borderColor: color,
-		borderStyle: 'solid',
-	})
+}
+
+function hexToArgbDecimalString(hex: string): string {
+	const clean = hex.replace('#', '')
+	const rgb = Number.parseInt(clean, 16)
+	return ((0xff000000 | rgb) >>> 0).toString()
+}
+
+function configureNative(storage: JsonStorage<RadialStatusStorage>) {
+	const cache = storage.cache
+	const colorEntries: [string, string][] = Object.entries(cache?.colors ?? {})
+	const colors = Object.fromEntries(
+		colorEntries.map(([status, hex]) => [status, hexToArgbDecimalString(hex)]),
+	)
+	revenge.modules.native
+		.callNativeMethod('radialstatus.configure', [!!cache?.enabled, cache?.ringThickness ?? 2, colors])
+		.catch(() => {})
+}
+
+function pushPresence(userId: string, status: string) {
+	revenge.modules.native.callNativeMethod('radialstatus.setPresence', [userId, status]).catch(() => {})
+}
+
+function pushKnownPresences() {
+	guard(() => {
+		const PresenceStore = (Stores as Record<string, any>).PresenceStore
+		const UserStore = (Stores as Record<string, any>).UserStore
+		const users = UserStore?.getUsers?.()
+		if (!users) return
+		for (const id of Object.keys(users)) {
+			const status = PresenceStore?.getStatus?.(id)
+			if (status) pushPresence(id, status)
+		}
+	}, undefined)
 }
 
 export default function patchRing(storage: JsonStorage<RadialStatusStorage>) {
-	const cleanups: (() => void)[] = []
+	if (!isNativeAvailable()) return () => {}
 
-	const unsubGeneral = getModules(
-		withProps('Button', 'Text', 'View'),
-		mod => {
-			guard(() => {
-				const View = (mod as { View?: ElementType }).View
-				if (!View) return
+	configureNative(storage)
+	pushKnownPresences()
 
-				cleanups.push(
-					beforeJSX(View, args => {
-						guard(() => tryApplyRing(args[1], storage), undefined)
-						return args
-					}),
-				)
-			}, undefined)
-		},
-		{ skipDefault: true },
-	)
-	cleanups.push(unsubGeneral)
+	const onPresenceUpdate = (event: any) => {
+		guard(() => {
+			const updates = Array.isArray(event?.updates) ? event.updates : [event]
+			for (const update of updates) {
+				const userId = update?.user?.id ?? update?.userId
+				const status = update?.status
+				if (userId && status) pushPresence(userId, status)
+			}
+		}, undefined)
+	}
 
-	return () => cleanups.forEach(fn => fn())
+	Dispatcher.subscribe('PRESENCE_UPDATES', onPresenceUpdate)
+	const unsubStorage = storage.subscribe(() => configureNative(storage))
+
+	return () => {
+		Dispatcher.unsubscribe('PRESENCE_UPDATES', onPresenceUpdate)
+		unsubStorage?.()
+	}
 }
