@@ -1,6 +1,6 @@
 package dev.everestmcarthur.radialstatus
 
-import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedBridge
 import java.util.Collections
 
 internal object RingConfig {
@@ -10,5 +10,17 @@ internal object RingConfig {
     val presenceCache: MutableMap<String, String> = Collections.synchronizedMap(mutableMapOf())
 
     var hooksInstalled = false
-    var configureAuthorHook: XC_MethodHook.Unhook? = null
+
+    private const val MAX_DIAGNOSTICS = 200
+    private val diagnostics: MutableList<String> = Collections.synchronizedList(mutableListOf())
+
+    fun diag(message: String) {
+        XposedBridge.log("[RadialStatus] $message")
+        synchronized(diagnostics) {
+            diagnostics.add(message)
+            while (diagnostics.size > MAX_DIAGNOSTICS) diagnostics.removeAt(0)
+        }
+    }
+
+    fun diagnosticsSnapshot(): List<String> = synchronized(diagnostics) { diagnostics.toList() }
 }

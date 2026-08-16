@@ -5,6 +5,17 @@ declare module '#lib/modules/native' {
 			void,
 		]
 		'radialstatus.setPresence': [[userId: string, status: string], void]
+		'radialstatus.debug': [
+			[],
+			{
+				hooksInstalled: boolean
+				enabled: boolean
+				ringThickness: number
+				statusColors: string[]
+				presenceCacheSize: number
+				diagnostics: string[]
+			},
+		]
 	}
 }
 

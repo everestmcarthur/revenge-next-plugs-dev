@@ -24,30 +24,28 @@ internal object AvatarRingHooks {
 
         val messageViewClass = XposedHelpers.findClassIfExists(MESSAGE_VIEW_CLASS, classLoader)
         if (messageViewClass == null) {
-            XposedBridge.log("[RadialStatus] $MESSAGE_VIEW_CLASS not found")
+            RingConfig.diag("$MESSAGE_VIEW_CLASS not found")
             return
         }
 
         try {
             val allMethods = messageViewClass.declaredMethods
-            XposedBridge.log(
-                "[RadialStatus] $MESSAGE_VIEW_CLASS methods: " + allMethods.joinToString { it.name },
-            )
+            RingConfig.diag("$MESSAGE_VIEW_CLASS methods: " + allMethods.joinToString { it.name })
 
             val configureAuthorMethods = allMethods.filter { it.name == "configureAuthor" }
             if (configureAuthorMethods.isEmpty()) {
-                XposedBridge.log("[RadialStatus] configureAuthor not found on $MESSAGE_VIEW_CLASS")
+                RingConfig.diag("configureAuthor not found on $MESSAGE_VIEW_CLASS")
                 return
             }
 
             for (method in configureAuthorMethods) {
                 val unhook = XposedBridge.hookMethod(method, object : XC_MethodHook() {
                     override fun afterHookedMethod(param: MethodHookParam) {
-                        XposedBridge.log("[RadialStatus] configureAuthor fired, enabled=${RingConfig.enabled}")
+                        RingConfig.diag("configureAuthor fired, enabled=${RingConfig.enabled}")
                         if (!RingConfig.enabled) return
                         val view = param.thisObject as? ViewGroup
                         if (view == null) {
-                            XposedBridge.log("[RadialStatus] thisObject is not a ViewGroup: ${param.thisObject?.javaClass}")
+                            RingConfig.diag("thisObject is not a ViewGroup: ${param.thisObject?.javaClass}")
                             return
                         }
                         applyRing(view)
@@ -57,9 +55,9 @@ internal object AvatarRingHooks {
             }
 
             RingConfig.hooksInstalled = true
-            XposedBridge.log("[RadialStatus] installed ${configureAuthorMethods.size} hook(s)")
+            RingConfig.diag("installed ${configureAuthorMethods.size} hook(s)")
         } catch (e: Throwable) {
-            XposedBridge.log("[RadialStatus] install failed: $e")
+            RingConfig.diag("install failed: $e")
         }
     }
 
@@ -82,8 +80,8 @@ internal object AvatarRingHooks {
         try {
             val avatarView = view.firstChildOrNull { it is ImageView } as? ImageView
             if (avatarView == null) {
-                XposedBridge.log(
-                    "[RadialStatus] no ImageView child, children: " +
+                RingConfig.diag(
+                    "no ImageView child, children: " +
                         (0 until view.childCount).joinToString { view.getChildAt(it).javaClass.simpleName },
                 )
                 return
@@ -91,19 +89,19 @@ internal object AvatarRingHooks {
 
             val userId = findAuthorId(view)
             if (userId == null) {
-                XposedBridge.log("[RadialStatus] no author id resolved")
+                RingConfig.diag("no author id resolved")
                 return
             }
             styledViews[view] = userId
 
             val status = RingConfig.presenceCache[userId]
             if (status == null) {
-                XposedBridge.log("[RadialStatus] no cached presence for $userId (cache size ${RingConfig.presenceCache.size})")
+                RingConfig.diag("no cached presence for $userId (cache size ${RingConfig.presenceCache.size})")
                 return
             }
             val color = RingConfig.statusColors[status]
             if (color == null) {
-                XposedBridge.log("[RadialStatus] no color configured for status '$status'")
+                RingConfig.diag("no color configured for status '$status'")
                 return
             }
 
@@ -113,10 +111,10 @@ internal object AvatarRingHooks {
                 setStroke(RingConfig.ringThickness, color)
             }
 
-            XposedBridge.log("[RadialStatus] ring applied for $userId ($status)")
+            RingConfig.diag("ring applied for $userId ($status)")
             hidePresenceIndicator(view)
         } catch (e: Throwable) {
-            XposedBridge.log("[RadialStatus] applyRing failed: $e")
+            RingConfig.diag("applyRing failed: $e")
         }
     }
 
@@ -124,7 +122,7 @@ internal object AvatarRingHooks {
         val binding = try {
             XposedHelpers.getObjectField(view, "binding")
         } catch (e: Throwable) {
-            XposedBridge.log("[RadialStatus] no 'binding' field on MessageView: ${e.message}")
+            RingConfig.diag("no 'binding' field on MessageView: ${e.message}")
             return null
         }
 
@@ -134,8 +132,8 @@ internal object AvatarRingHooks {
             if (authorId != null) return authorId
         }
 
-        XposedBridge.log(
-            "[RadialStatus] couldn't resolve author id, binding fields: " +
+        RingConfig.diag(
+            "couldn't resolve author id, binding fields: " +
                 binding.javaClass.declaredFields.joinToString { it.name },
         )
         return null
