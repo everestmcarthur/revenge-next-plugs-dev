@@ -30,8 +30,6 @@ internal object AvatarRingHooks {
 
         try {
             val allMethods = messageViewClass.declaredMethods
-            RingConfig.diag("$MESSAGE_VIEW_CLASS methods: " + allMethods.joinToString { it.name })
-
             val configureAuthorMethods = allMethods.filter { it.name == "configureAuthor" }
             if (configureAuthorMethods.isEmpty()) {
                 RingConfig.diag("configureAuthor not found on $MESSAGE_VIEW_CLASS")
@@ -41,13 +39,8 @@ internal object AvatarRingHooks {
             for (method in configureAuthorMethods) {
                 val unhook = XposedBridge.hookMethod(method, object : XC_MethodHook() {
                     override fun afterHookedMethod(param: MethodHookParam) {
-                        RingConfig.diag("configureAuthor fired, enabled=${RingConfig.enabled}")
                         if (!RingConfig.enabled) return
-                        val view = param.thisObject as? ViewGroup
-                        if (view == null) {
-                            RingConfig.diag("thisObject is not a ViewGroup: ${param.thisObject?.javaClass}")
-                            return
-                        }
+                        val view = param.thisObject as? ViewGroup ?: return
                         applyRing(view)
                     }
                 })
@@ -76,12 +69,19 @@ internal object AvatarRingHooks {
         }
     }
 
+    private fun findAvatarView(view: ViewGroup): ImageView? {
+        val binding = callOrNull(view, "getBinding") ?: fieldOrNull(view, "binding")
+        val fromBinding = binding?.let { fieldOrNull(it, "authorAvatar") } as? ImageView
+        if (fromBinding != null) return fromBinding
+        return view.firstChildOrNull { it is ImageView } as? ImageView
+    }
+
     private fun applyRing(view: ViewGroup) {
         try {
-            val avatarView = view.firstChildOrNull { it is ImageView } as? ImageView
+            val avatarView = findAvatarView(view)
             if (avatarView == null) {
                 RingConfig.diag(
-                    "no ImageView child, children: " +
+                    "no avatar ImageView found, children: " +
                         (0 until view.childCount).joinToString { view.getChildAt(it).javaClass.simpleName },
                 )
                 return
@@ -119,22 +119,45 @@ internal object AvatarRingHooks {
     }
 
     private fun findAuthorId(view: ViewGroup): String? {
-        val binding = try {
-            XposedHelpers.getObjectField(view, "binding")
-        } catch (e: Throwable) {
-            RingConfig.diag("no 'binding' field on MessageView: ${e.message}")
-            return null
+        val binding = fieldOrNull(view, "binding")
+        if (binding != null) {
+            for (getter in MESSAGE_GETTERS) {
+                val message = callOrNull(binding, getter) ?: continue
+                val authorId = extractAuthorId(message)
+                if (authorId != null) return authorId
+            }
         }
 
-        for (getter in MESSAGE_GETTERS) {
-            val message = callOrNull(binding, getter) ?: continue
-            val authorId = extractAuthorId(message)
-            if (authorId != null) return authorId
+        var currentClass: Class<*>? = view.javaClass
+        while (currentClass != null) {
+            for (field in currentClass.declaredFields) {
+                field.isAccessible = true
+                val value = try {
+                    field.get(view)
+                } catch (e: Throwable) {
+                    null
+                } ?: continue
+
+                val viaMessage = extractAuthorId(value)
+                if (viaMessage != null) {
+                    RingConfig.diag("resolved author id via field '${field.name}' -> author/user")
+                    return viaMessage
+                }
+
+                if (value !is View) {
+                    val directId = callOrNull(value, "getId")
+                    if (isSnowflakeLike(directId)) {
+                        RingConfig.diag("resolved author id via field '${field.name}' -> direct getId")
+                        return directId.toString()
+                    }
+                }
+            }
+            currentClass = currentClass.superclass
         }
 
         RingConfig.diag(
-            "couldn't resolve author id, binding fields: " +
-                binding.javaClass.declaredFields.joinToString { it.name },
+            "couldn't resolve author id, view fields: " +
+                view.javaClass.declaredFields.joinToString { it.name },
         )
         return null
     }
@@ -143,14 +166,27 @@ internal object AvatarRingHooks {
         for (getter in AUTHOR_GETTERS) {
             val author = callOrNull(message, getter) ?: continue
             val id = callOrNull(author, "getId")
-            if (id != null) return id.toString()
+            if (isSnowflakeLike(id)) return id.toString()
         }
         return null
+    }
+
+    private fun isSnowflakeLike(value: Any?): Boolean {
+        val text = value?.toString() ?: return false
+        val number = text.toLongOrNull() ?: return false
+        return number > Int.MAX_VALUE
     }
 
     private fun callOrNull(target: Any, method: String): Any? =
         try {
             XposedHelpers.callMethod(target, method)
+        } catch (e: Throwable) {
+            null
+        }
+
+    private fun fieldOrNull(target: Any, name: String): Any? =
+        try {
+            XposedHelpers.getObjectField(target, name)
         } catch (e: Throwable) {
             null
         }
