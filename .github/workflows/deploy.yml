@@ -43,7 +43,7 @@ jobs:
               run: ./gradlew packageAllPlugins
 
             - name: Generate repository index
-              run: bun run generate-index -- --dist build/dist --base-url https://next.jarviscli.dev --out build/dist/index.json
+              run: bun run generate-index -- --dist build/dist --base-url https://dev-next.jarviscli.dev --out build/dist/index.json
 
             - name: Deploy to Cloudflare Workers
               env:
@@ -51,4 +51,6 @@ jobs:
               run: bunx wrangler deploy
 
             - name: Verify deployed index and artifact integrity
+              env:
+                  VERIFY_BASE_URL: https://dev-next.jarviscli.dev
               run: bun .github/scripts/verify-deploy.mjs
