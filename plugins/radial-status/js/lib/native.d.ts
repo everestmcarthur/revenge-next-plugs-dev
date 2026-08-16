@@ -5,6 +5,7 @@ declare module '#lib/modules/native' {
 			void,
 		]
 		'radialstatus.setPresence': [[userId: string, status: string], void]
+		'radialstatus.setMessageAuthor': [[messageId: string, authorId: string], void]
 		'radialstatus.debug': [
 			[],
 			{
@@ -13,6 +14,7 @@ declare module '#lib/modules/native' {
 				ringThickness: number
 				statusColors: string[]
 				presenceCacheSize: number
+				messageAuthorsSize: number
 				diagnostics: string[]
 			},
 		]

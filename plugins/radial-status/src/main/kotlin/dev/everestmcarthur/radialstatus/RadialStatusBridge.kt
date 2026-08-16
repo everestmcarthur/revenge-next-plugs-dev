@@ -34,6 +34,15 @@ internal object RadialStatusBridge {
             null
         }
 
+        scope.registerNativeMethod("radialstatus.setMessageAuthor") { args ->
+            val messageId = args.getOrNull(0) as? String
+            val authorId = args.getOrNull(1) as? String
+            if (messageId != null && authorId != null) {
+                RingConfig.messageAuthors[messageId] = authorId
+            }
+            null
+        }
+
         scope.registerNativeMethod("radialstatus.debug") {
             mapOf(
                 "hooksInstalled" to RingConfig.hooksInstalled,
@@ -41,6 +50,7 @@ internal object RadialStatusBridge {
                 "ringThickness" to RingConfig.ringThickness,
                 "statusColors" to RingConfig.statusColors.keys.toList(),
                 "presenceCacheSize" to RingConfig.presenceCache.size,
+                "messageAuthorsSize" to RingConfig.messageAuthors.size,
                 "diagnostics" to RingConfig.diagnosticsSnapshot(),
             )
         }

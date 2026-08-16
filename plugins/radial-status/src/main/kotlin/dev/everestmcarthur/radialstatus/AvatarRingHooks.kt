@@ -119,6 +119,12 @@ internal object AvatarRingHooks {
     }
 
     private fun findAuthorId(view: ViewGroup): String? {
+        val messageId = fieldOrNull(view, "messageId")?.toString()
+        if (messageId != null) {
+            val cached = RingConfig.messageAuthors[messageId]
+            if (cached != null) return cached
+        }
+
         val binding = fieldOrNull(view, "binding")
         if (binding != null) {
             for (getter in MESSAGE_GETTERS) {
@@ -156,8 +162,7 @@ internal object AvatarRingHooks {
         }
 
         RingConfig.diag(
-            "couldn't resolve author id, view fields: " +
-                view.javaClass.declaredFields.joinToString { it.name },
+            "couldn't resolve author id, messageId=$messageId (known authors: ${RingConfig.messageAuthors.size})",
         )
         return null
     }

@@ -8,6 +8,7 @@ internal object RingConfig {
     var ringThickness = 2.px
     val statusColors: MutableMap<String, Int> = Collections.synchronizedMap(mutableMapOf())
     val presenceCache: MutableMap<String, String> = Collections.synchronizedMap(mutableMapOf())
+    val messageAuthors: MutableMap<String, String> = Collections.synchronizedMap(mutableMapOf())
 
     var hooksInstalled = false
 

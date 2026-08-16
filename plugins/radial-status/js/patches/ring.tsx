@@ -33,6 +33,21 @@ function pushPresence(userId: string, status: string) {
 	revenge.modules.native.callNativeMethod('radialstatus.setPresence', [userId, status]).catch(() => {})
 }
 
+function pushMessageAuthor(messageId: string, authorId: string) {
+	revenge.modules.native
+		.callNativeMethod('radialstatus.setMessageAuthor', [messageId, authorId])
+		.catch(() => {})
+}
+
+function pushMessageAuthorsFrom(messages: unknown): void {
+	if (!Array.isArray(messages)) return
+	for (const message of messages as any[]) {
+		const messageId = message?.id
+		const authorId = message?.author?.id
+		if (messageId && authorId) pushMessageAuthor(String(messageId), String(authorId))
+	}
+}
+
 function pushKnownPresences() {
 	guard(() => {
 		const PresenceStore = (Stores as Record<string, any>).PresenceStore
@@ -76,10 +91,26 @@ export default function patchRing(storage: JsonStorage<RadialStatusStorage>) {
 		}, undefined)
 	}
 
+	const onMessageCreate = (event: any) => {
+		guard(() => {
+			const messageId = event?.message?.id
+			const authorId = event?.message?.author?.id
+			if (messageId && authorId) pushMessageAuthor(String(messageId), String(authorId))
+		}, undefined)
+	}
+
+	const onLoadMessagesSuccess = (event: any) => {
+		guard(() => pushMessageAuthorsFrom(event?.messages), undefined)
+	}
+
 	Dispatcher.subscribe('PRESENCE_UPDATES', onPresenceUpdate)
+	Dispatcher.subscribe('MESSAGE_CREATE', onMessageCreate)
+	Dispatcher.subscribe('LOAD_MESSAGES_SUCCESS', onLoadMessagesSuccess)
 
 	return () => {
 		Dispatcher.unsubscribe('PRESENCE_UPDATES', onPresenceUpdate)
+		Dispatcher.unsubscribe('MESSAGE_CREATE', onMessageCreate)
+		Dispatcher.unsubscribe('LOAD_MESSAGES_SUCCESS', onLoadMessagesSuccess)
 		unsubStorage?.()
 	}
 }
