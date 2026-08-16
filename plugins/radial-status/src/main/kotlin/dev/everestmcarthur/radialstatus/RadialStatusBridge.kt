@@ -4,7 +4,7 @@ import io.github.revenge.plugins.PluginScope
 import io.github.revenge.xposed.api.registerNativeMethod
 
 internal object RadialStatusBridge {
-    fun register(scope: PluginScope) {
+    fun register(scope: PluginScope, classLoader: ClassLoader) {
         scope.registerNativeMethod("radialstatus.configure") { args ->
             val enabled = args.getOrNull(0) as? Boolean ?: false
             val thickness = (args.getOrNull(1) as? Number)?.toInt() ?: 2
@@ -41,6 +41,16 @@ internal object RadialStatusBridge {
                 RingConfig.messageAuthors[messageId] = authorId
             }
             null
+        }
+
+        scope.registerNativeMethod("radialstatus.scanClasses") { args ->
+            val keyword = args.getOrNull(0) as? String ?: return@registerNativeMethod emptyList<String>()
+            try {
+                ClassScanner.findClasses(classLoader, keyword)
+            } catch (e: Throwable) {
+                RingConfig.diag("scanClasses failed: $e")
+                emptyList<String>()
+            }
         }
 
         scope.registerNativeMethod("radialstatus.debug") {

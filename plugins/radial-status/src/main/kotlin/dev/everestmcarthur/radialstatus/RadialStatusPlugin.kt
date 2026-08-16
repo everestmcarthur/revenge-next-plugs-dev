@@ -8,7 +8,7 @@ val radialStatusApiPlugin = plugin {
     start {
         RingConfig.diag("native plugin starting")
         AvatarRingHooks.install(classLoader)
-        RadialStatusBridge.register(this)
+        RadialStatusBridge.register(this, classLoader)
     }
 
     stop {

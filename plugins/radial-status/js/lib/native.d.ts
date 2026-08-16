@@ -6,6 +6,7 @@ declare module '#lib/modules/native' {
 		]
 		'radialstatus.setPresence': [[userId: string, status: string], void]
 		'radialstatus.setMessageAuthor': [[messageId: string, authorId: string], void]
+		'radialstatus.scanClasses': [[keyword: string], string[]]
 		'radialstatus.debug': [
 			[],
 			{
