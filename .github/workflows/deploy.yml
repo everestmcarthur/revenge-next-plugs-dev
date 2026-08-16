@@ -33,6 +33,12 @@ jobs:
             - name: Install JS deps
               run: bun install
 
+            - name: Publish Revenge plugin API to local Maven
+              run: |
+                  git clone --depth 1 https://github.com/revenge-mod/revenge-xposed.git /tmp/revenge-xposed
+                  cd /tmp/revenge-xposed
+                  ./gradlew :api:publishToMavenLocal
+
             - name: Package all plugins
               run: ./gradlew packageAllPlugins
 
