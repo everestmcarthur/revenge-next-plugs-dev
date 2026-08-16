@@ -58,7 +58,11 @@ export default function patchRing(storage: JsonStorage<RadialStatusStorage>) {
 	console.log('[RadialStatus] native available:', isNativeAvailable())
 	if (!isNativeAvailable()) return () => {}
 
-	configureNative(storage)
+	const unsubStorage = storage.subscribe(() => configureNative(storage))
+
+	if (storage.loaded) configureNative(storage)
+	void storage.get().then(() => configureNative(storage))
+
 	pushKnownPresences()
 
 	const onPresenceUpdate = (event: any) => {
@@ -73,7 +77,6 @@ export default function patchRing(storage: JsonStorage<RadialStatusStorage>) {
 	}
 
 	Dispatcher.subscribe('PRESENCE_UPDATES', onPresenceUpdate)
-	const unsubStorage = storage.subscribe(() => configureNative(storage))
 
 	return () => {
 		Dispatcher.unsubscribe('PRESENCE_UPDATES', onPresenceUpdate)
