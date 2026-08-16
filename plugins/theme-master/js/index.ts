@@ -23,13 +23,19 @@ export default plugin<{ jsonStorage: ThemeMasterStorage }>({
 		}
 		api.cleanup(stop)
 
-		try {
-			const unpin = addSettingsItemToSection('REVENGE', api.plugin.manifest.id)
-			refreshSettings()
-			api.cleanup(unpin)
-		} catch (e) {
-			api.logger.error(`[Theme Master] Failed to pin into the Revenge settings section: ${e}`)
+		const pluginId = api.plugin.manifest.id
+		function ensurePinned() {
+			try {
+				addSettingsItemToSection('REVENGE', (items: string[]) =>
+					items.includes(pluginId) ? items : [...items, pluginId],
+				)
+				refreshSettings()
+			} catch (e) {
+				api.logger.error(`[Theme Master] Failed to pin into the Revenge settings section: ${e}`)
+			}
 		}
+		ensurePinned()
+		api.cleanup(api.jsonStorage.subscribe(ensurePinned))
 	},
 
 	SettingsComponent: Settings,
