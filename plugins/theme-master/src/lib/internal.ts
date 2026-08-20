@@ -59,8 +59,13 @@ export function resolveReference(
 export function normalizeToHex(
 	colorString: string | undefined,
 ): string | undefined {
-	if (colorString === undefined) return undefined
-	const processed = Number(processColor(colorString))
+	if (colorString === undefined || colorString === '') return undefined
+	let processed: number
+	try {
+		processed = Number(processColor(colorString))
+	} catch {
+		return undefined
+	}
 	if (Number.isNaN(processed)) return undefined
 
 	const a = (processed >>> 24) & 0xff
@@ -112,13 +117,15 @@ function applyAndroidAlphaKeys(rawColors: Record<string, string>) {
 }
 
 function resolveColorValue(
-	value: string,
+	value: unknown,
 	origRaw: Record<string, string>,
 ): string | undefined {
-	if (value.startsWith('#')) return normalizeToHex(value)
-	const resolved = origRaw[value]
+	const str = typeof value === 'string' ? value : String(value)
+	if (!str) return undefined
+	if (str.startsWith('#')) return normalizeToHex(str)
+	const resolved = origRaw[str]
 	if (resolved) return resolved
-	return normalizeToHex(value)
+	return normalizeToHex(str)
 }
 
 export function parseColorManifest(
@@ -150,7 +157,7 @@ export function parseColorManifest(
 		const raw: Record<string, string> = {}
 		if (vendetta.rawColors) {
 			for (const key in vendetta.rawColors) {
-				const value = normalizeToHex(vendetta.rawColors[key])
+				const value = normalizeToHex(String(vendetta.rawColors[key]))
 				if (value) raw[key] = value
 			}
 			if (Platform.OS === 'android') applyAndroidAlphaKeys(raw)
@@ -195,7 +202,7 @@ export function parseColorManifest(
 		const raw: Record<string, string> = {}
 		if (bunny.main?.raw) {
 			for (const key in bunny.main.raw) {
-				const value = normalizeToHex(bunny.main.raw[key])
+				const value = normalizeToHex(String(bunny.main.raw[key]))
 				if (value) raw[key] = value
 			}
 			if (Platform.OS === 'android') applyAndroidAlphaKeys(raw)
