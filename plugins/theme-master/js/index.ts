@@ -1,4 +1,3 @@
-import { addSettingsItemToSection, refreshSettings } from '@revenge-mod/discord/modules/settings'
 import startEngine from './lib/engine'
 import Settings from './ui/pages/Settings'
 import type { ThemeMasterStorage } from './lib/types'
@@ -22,20 +21,6 @@ export default plugin<{ jsonStorage: ThemeMasterStorage }>({
 			api.logger.error(`[Theme Master] Failed to start the theme engine: ${e}`)
 		}
 		api.cleanup(stop)
-
-		const pluginId = api.plugin.manifest.id
-		function ensurePinned() {
-			try {
-				addSettingsItemToSection('REVENGE', (items: string[]) =>
-					items.includes(pluginId) ? items : [...items, pluginId],
-				)
-				refreshSettings()
-			} catch (e) {
-				api.logger.error(`[Theme Master] Failed to pin into the Revenge settings section: ${e}`)
-			}
-		}
-		ensurePinned()
-		api.cleanup(api.jsonStorage.subscribe(ensurePinned))
 	},
 
 	SettingsComponent: Settings,
