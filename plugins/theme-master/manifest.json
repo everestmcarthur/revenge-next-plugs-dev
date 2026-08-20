@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "com.raiden.theme-master",
 	"name": "Theme Master",
-	"description": "Load a Bunny/Vendetta-format theme spec by URL and apply it to Revenge Next, including a best-effort mapping for older theme token names.",
-	"author": "Raiden",
+	"description": "A uniform theme and font manager directly ported from Revenge Classic. Fetches Bunny/Vendetta-format themes and spec:1 fonts by URL, writes them to the native loader files, and lets you pick which is active.",
+	"author": "Rosie",
 	"icon": "PencilIcon",
-	"version": "1.1.5",
+	"version": "2.0.0",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
