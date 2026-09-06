@@ -27,9 +27,15 @@ const EverestLib = {
 ;(globalThis as any).__everest = EverestLib
 
 export default plugin({
-	start({ decorate }) {
-		decorate((plugin) => {
-			plugin.api.unscoped.everest = EverestLib
+	start({ decorate, plugin }) {
+		if (plugin.startedLate) {
+			try {
+				plugin.requireReload()
+			} catch {}
+		}
+
+		decorate((targetPlugin) => {
+			targetPlugin.api.unscoped.everest = EverestLib
 		})
 	},
 	SettingsComponent: Settings,

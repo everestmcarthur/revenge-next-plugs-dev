@@ -32,7 +32,19 @@ export default function PluginInfoSheet({ pluginId }: { pluginId: string }) {
 		TableRowGroup,
 		TableRow,
 		Stack,
+		Text,
 	} = Design
+	const { TableRowAssetIcon } = (revenge.components ?? {}) as any
+
+	const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
+
+	React.useEffect(() => {
+		const everest = getRegistry()
+		if (!everest?.onLog) return
+		return everest.onLog(() => {
+			forceUpdate()
+		})
+	}, [])
 
 	const everest = getRegistry()
 	const registered = everest?.getRegisteredPlugin?.(pluginId) as
@@ -51,6 +63,7 @@ export default function PluginInfoSheet({ pluginId }: { pluginId: string }) {
 		return String(e)
 	})
 	const version = formatVersion(registered.version)
+	const logs: any[] = everest?.getLogs?.({ pluginId }) ?? []
 
 	let iconSource: number | undefined
 	try {
@@ -117,6 +130,53 @@ export default function PluginInfoSheet({ pluginId }: { pluginId: string }) {
 									subLabel={err}
 								/>
 							))}
+						</TableRowGroup>
+					)}
+
+					{logs.length > 0 && (
+						<TableRowGroup title={`Library Logs (${logs.length})`}>
+							{logs.map((log: any, idx: number) => {
+								const iconName =
+									log.found !== false
+										? 'CheckmarkLargeIcon'
+										: 'CrossMediumIcon'
+
+								let leadingIcon: any = null
+								if (TableRowAssetIcon) {
+									leadingIcon = <TableRowAssetIcon name={iconName} />
+								} else {
+									try {
+										const assetId = revenge.assets.getAssetIdByName(iconName)
+										if (assetId != null) {
+											leadingIcon = (
+												<Image
+													source={assetId}
+													style={{ width: 18, height: 18 }}
+												/>
+											)
+										}
+									} catch {}
+								}
+
+								return (
+									<TableRow
+										key={idx}
+										icon={leadingIcon}
+										label={log.action}
+										subLabel={log.target || log.message}
+										trailing={
+											Text ? (
+												<Text
+													variant="text-sm/normal"
+													color="text-muted"
+												>
+													#{log.attempt ?? 1}
+												</Text>
+											) : undefined
+										}
+									/>
+								)
+							})}
 						</TableRowGroup>
 					)}
 				</Stack>

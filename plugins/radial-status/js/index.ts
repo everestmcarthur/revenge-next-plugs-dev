@@ -17,6 +17,12 @@ export default plugin<{ jsonStorage: RadialStatusStorage }>({
 	},
 
 	start(api) {
+		if (api.plugin.startedLate) {
+			try {
+				api.plugin.requireReload()
+			} catch {}
+		}
+
 		let unpatch = () => {}
 		try {
 			unpatch = patchRing(api.jsonStorage)

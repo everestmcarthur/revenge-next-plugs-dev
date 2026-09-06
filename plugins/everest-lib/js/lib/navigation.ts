@@ -1,4 +1,5 @@
-import { createModuleGetter } from './modules'
+import { createModuleGetter, getActivePluginId } from './modules'
+import { logUsage } from './log'
 
 const transitionRouterFilter = revenge.modules.finders.filters.withProps('transitionToGuild')
 
@@ -10,6 +11,7 @@ const transitionRouterModule = createModuleGetter<any>(
 			: typeof exports?.default?.transitionToGuild === 'function'
 				? exports.default
 				: undefined,
+	'transitionRouter',
 )
 
 const userSettingsFilter = revenge.modules.finders.filters.createFilterGenerator(
@@ -31,6 +33,7 @@ const userSettingsModule = createModuleGetter<any>(
 		if (t.$$baseObject || t.$$loader || t.messages || t.defaultLocale) return undefined
 		return typeof t.openUserSettings === 'function' ? t : undefined
 	},
+	'userSettings',
 )
 
 const navigationModule = createModuleGetter<any>(
@@ -41,11 +44,13 @@ const navigationModule = createModuleGetter<any>(
 			: typeof exports?.default?.push === 'function'
 				? exports.default
 				: undefined,
+	'navigation',
 )
 
 const navigatorModule = createModuleGetter<any>(
 	revenge.modules.finders.filters.withProps('Navigator'),
 	(exports) => exports?.Navigator ?? exports?.default ?? exports,
+	'navigator',
 )
 
 const modalCloseModule = createModuleGetter<any>(
@@ -54,6 +59,7 @@ const modalCloseModule = createModuleGetter<any>(
 		exports?.getHeaderCloseButton ??
 		exports?.getRenderCloseButton ??
 		exports?.default?.getHeaderCloseButton,
+	'modalClose',
 )
 
 export function getRouter(): any {
@@ -83,25 +89,32 @@ export function transitionToGuild(
 	channelId?: string,
 	messageId?: string,
 ): void {
+	const pluginId = getActivePluginId()
 	try {
 		const router = transitionRouterModule()
 		if (typeof router?.transitionToGuild === 'function') {
 			router.transitionToGuild(guildId, channelId, messageId)
+			logUsage(pluginId, 'navigation', 'nav:transitionToGuild', `${guildId}/${channelId ?? ''}`, true)
 			return
 		}
 
 		const { lookupModule } = revenge.modules.finders
 		const r = lookupModule(transitionRouterFilter)?.[0]
-		r?.transitionToGuild?.(guildId, channelId, messageId)
+		if (typeof r?.transitionToGuild === 'function') {
+			r.transitionToGuild(guildId, channelId, messageId)
+			logUsage(pluginId, 'navigation', 'nav:transitionToGuild', `${guildId}/${channelId ?? ''}`, true)
+			return
+		}
+		logUsage(pluginId, 'navigation', 'nav:transitionToGuild', `${guildId}/${channelId ?? ''}`, false, 'Router not found')
 	} catch (e) {
-		console.error('[EverestLib] transitionToGuild error:', e)
+		logUsage(pluginId, 'navigation', 'nav:transitionToGuild', `${guildId}/${channelId ?? ''}`, false, String(e))
 	}
 }
 
 export function openUserSettings(section?: string): void {
+	const pluginId = getActivePluginId()
+	const targetSection = typeof section === 'string' ? section : 'Overview'
 	try {
-		const targetSection = typeof section === 'string' ? section : 'Overview'
-
 		// 1. Direct Metro require / known module ID check for instant cold boot
 		if (typeof (globalThis as any).__r === 'function') {
 			try {
@@ -113,6 +126,7 @@ export function openUserSettings(section?: string): void {
 					!target.$$loader
 				) {
 					target.openUserSettings(targetSection)
+					logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
 					return
 				}
 			} catch {}
@@ -122,6 +136,7 @@ export function openUserSettings(section?: string): void {
 		const mod = userSettingsModule()
 		if (typeof mod?.openUserSettings === 'function') {
 			mod.openUserSettings(targetSection)
+			logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
 			return
 		}
 
@@ -132,10 +147,13 @@ export function openUserSettings(section?: string): void {
 			const target = m?.default ?? m
 			if (typeof target?.openUserSettings === 'function') {
 				target.openUserSettings(targetSection)
+				logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
 				return
 			}
 		}
+		logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, false, 'Action not found')
 	} catch (e) {
-		console.error('[EverestLib] openUserSettings error:', e)
+		logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, false, String(e))
 	}
 }
+

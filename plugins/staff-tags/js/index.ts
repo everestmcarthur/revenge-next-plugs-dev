@@ -13,6 +13,12 @@ export default plugin<{ jsonStorage: StaffTagsStorage }>({
 	},
 
 	start(api) {
+		if (api.plugin.startedLate) {
+			try {
+				api.plugin.requireReload()
+			} catch {}
+		}
+
 		const unpatchAll = applyPatches('Staff Tags', api.logger, {
 			tag: patchTag,
 			chat: () => patchChat(api.jsonStorage),

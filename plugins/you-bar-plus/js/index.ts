@@ -14,6 +14,12 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 	},
 
 	start(api) {
+		if (api.plugin.startedLate) {
+			try {
+				api.plugin.requireReload()
+			} catch {}
+		}
+
 		const everest = (globalThis as any).__everest
 		everest?.setActivePlugin?.(api.plugin.manifest.id)
 		everest?.registerPlugin?.({

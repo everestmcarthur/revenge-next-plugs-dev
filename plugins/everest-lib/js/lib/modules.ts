@@ -20,9 +20,12 @@ export function lazy<T>(resolve: () => T): () => T {
 	}
 }
 
+import { logUsage } from './log'
+
 export function createModuleGetter<T>(
 	filter: any,
 	resolve: (exports: any) => T | undefined,
+	description = 'module',
 ): () => T | undefined {
 	const { getModules, lookupModule } = revenge.modules.finders
 	let cached: T | undefined
@@ -38,9 +41,12 @@ export function createModuleGetter<T>(
 					if (resolved !== undefined) {
 						cached = resolved
 						done = true
+						logUsage(activePluginId, 'finders', `module:${description}`, 'resolve', true)
 						unsub?.()
 					}
-				} catch {}
+				} catch (e) {
+					logUsage(activePluginId, 'finders', `module:${description}`, 'resolve', false, String(e))
+				}
 			},
 			{ returnNamespace: true },
 		)
@@ -55,10 +61,13 @@ export function createModuleGetter<T>(
 				if (resolved !== undefined) {
 					cached = resolved
 					done = true
+					logUsage(activePluginId, 'finders', `module:${description}`, 'lookup', true)
 					return cached
 				}
 			}
-		} catch {}
+		} catch (e) {
+			logUsage(activePluginId, 'finders', `module:${description}`, 'lookup', false, String(e))
+		}
 		return cached
 	}
 }
@@ -73,9 +82,12 @@ export function createStoreGetter(name: string): () => any {
 		unsub = getStore(name, (store: any) => {
 			cached = store
 			done = true
+			logUsage(activePluginId, 'stores', `store:${name}`, 'resolve', true)
 			unsub?.()
 		})
-	} catch {}
+	} catch (e) {
+		logUsage(activePluginId, 'stores', `store:${name}`, 'getStore', false, String(e))
+	}
 
 	return () => {
 		if (done && cached !== undefined) return cached
@@ -84,8 +96,13 @@ export function createStoreGetter(name: string): () => any {
 			if (viaProxy) {
 				cached = viaProxy
 				done = true
+				logUsage(activePluginId, 'stores', `store:${name}`, 'resolve', true)
+			} else {
+				logUsage(activePluginId, 'stores', `store:${name}`, 'resolve', false)
 			}
-		} catch {}
+		} catch (e) {
+			logUsage(activePluginId, 'stores', `store:${name}`, 'resolve', false, String(e))
+		}
 		return cached
 	}
 }

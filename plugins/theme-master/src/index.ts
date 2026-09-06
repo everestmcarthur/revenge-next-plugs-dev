@@ -11,6 +11,12 @@ export default plugin<{ jsonStorage: ThemeMasterStorage }>({
 		default: DEFAULTS,
 	},
 	async start({ cleanup, jsonStorage, plugin }) {
+		if (plugin.startedLate) {
+			try {
+				plugin.requireReload()
+			} catch {}
+		}
+
 		const loaderCleanup = initLoader(jsonStorage)
 
 		const write = async () => {
