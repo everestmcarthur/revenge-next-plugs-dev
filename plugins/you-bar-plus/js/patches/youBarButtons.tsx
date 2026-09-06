@@ -110,6 +110,8 @@ export default function patchYouBarButtons(
 				const currentStorage: YouBarPlusStorage = {
 					showDMButton: true,
 					showSettingsButton: true,
+					showNotificationsButton: true,
+					order: ['dms', 'notifications', 'settings'],
 					...(storage.cache ?? {}),
 				}
 
@@ -132,55 +134,69 @@ export default function patchYouBarButtons(
 
 				if (!IconButton) return res
 
-				const extraButtons: any[] = []
+				const dmButton =
+					currentStorage.showDMButton !== false
+						? React.createElement(IconButton, {
+								key: 'youbar-dm-button',
+								variant: originalProps.variant || 'tertiary',
+								size: originalProps.size || 'sm',
+								icon: ChatIcon,
+								accessibilityLabel: 'Direct Messages',
+								onPress: () => {
+									try {
+										const router = getTransitionRouter()
+										router?.transitionToGuild?.('@me')
+									} catch (e) {
+										console.error('[YouBar+] DM button error:', e)
+									}
+								},
+						  })
+						: null
 
-				if (currentStorage.showDMButton) {
-					extraButtons.push(
-						React.createElement(IconButton, {
-							key: 'youbar-dm-button',
-							variant: originalProps.variant || 'tertiary',
-							size: originalProps.size || 'sm',
-							icon: ChatIcon,
-							accessibilityLabel: 'Direct Messages',
-							onPress: () => {
-								try {
-									const router = getTransitionRouter()
-									router?.transitionToGuild?.('@me')
-								} catch (e) {
-									console.error('[YouBar+] DM button error:', e)
-								}
-							},
-						}),
-					)
+				const settingsButton =
+					currentStorage.showSettingsButton !== false
+						? React.createElement(IconButton, {
+								key: 'youbar-settings-button',
+								variant: originalProps.variant || 'tertiary',
+								size: originalProps.size || 'sm',
+								icon: SettingsIcon,
+								accessibilityLabel: 'User Settings',
+								onPress: () => {
+									try {
+										const router = getUserSettingsRouter()
+										router?.openUserSettings?.()
+									} catch (e) {
+										console.error('[YouBar+] Settings button error:', e)
+									}
+								},
+						  })
+						: null
+
+				const notificationsButton =
+					currentStorage.showNotificationsButton !== false ? res : null
+
+				const order =
+					Array.isArray(currentStorage.order) &&
+					currentStorage.order.length === 3
+						? currentStorage.order
+						: (['dms', 'notifications', 'settings'] as const)
+
+				const buttonMap: Record<string, any> = {
+					dms: dmButton,
+					notifications: notificationsButton,
+					settings: settingsButton,
 				}
 
-				if (currentStorage.showSettingsButton) {
-					extraButtons.push(
-						React.createElement(IconButton, {
-							key: 'youbar-settings-button',
-							variant: originalProps.variant || 'tertiary',
-							size: originalProps.size || 'sm',
-							icon: SettingsIcon,
-							accessibilityLabel: 'User Settings',
-							onPress: () => {
-								try {
-									const router = getUserSettingsRouter()
-									router?.openUserSettings?.()
-								} catch (e) {
-									console.error('[YouBar+] Settings button error:', e)
-								}
-							},
-						}),
-					)
-				}
+				const renderedButtons = order
+					.map((id) => buttonMap[id])
+					.filter(Boolean)
 
-				if (extraButtons.length === 0) return res
+				if (renderedButtons.length === 0) return null
 
 				return React.createElement(
 					React.Fragment,
 					null,
-					...extraButtons,
-					res,
+					...renderedButtons,
 				)
 			},
 		)

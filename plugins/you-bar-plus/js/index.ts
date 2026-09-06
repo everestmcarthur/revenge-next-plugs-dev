@@ -1,11 +1,6 @@
 import patchYouBarButtons, { requestYouBarUpdate } from './patches/youBarButtons'
 import Settings from './ui/Settings'
-import type { YouBarPlusStorage } from './lib/types'
-
-export const DEFAULT_STORAGE: YouBarPlusStorage = {
-	showDMButton: true,
-	showSettingsButton: true,
-}
+import { DEFAULT_STORAGE, type YouBarPlusStorage } from './lib/types'
 
 export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 	jsonStorage: {
