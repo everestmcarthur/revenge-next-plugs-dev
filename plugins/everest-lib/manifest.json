@@ -5,7 +5,7 @@
 	"description": "Shared utility modules, Discord finders, navigators, and native helpers for Everest plugins.",
 	"author": "Rosie",
 	"icon": "SettingsIcon",
-	"version": "1.0.9",
+	"version": "1.1.0",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
