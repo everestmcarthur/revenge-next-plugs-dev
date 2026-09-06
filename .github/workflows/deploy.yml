@@ -40,7 +40,7 @@ jobs:
                   ./gradlew :api:publishToMavenLocal
 
             - name: Package all plugins
-              run: ./gradlew packageAllPlugins
+              run: ./gradlew packageAllPlugins -PjsToolPath="$(which bun)"
 
             - name: Generate repository index
               run: bun run generate-index -- --dist build/dist --base-url https://dev-next.jarviscli.dev --out build/dist/index.json

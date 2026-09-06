@@ -242,13 +242,7 @@ val buildJs = tasks.register("buildJs") {
 
     doLast {
         val tool = findJsTool()
-        if (tool == null) {
-            logger.warn(
-                "No JS toolchain found (bun, npm, deno). Install Node >= 22.18, Bun or Deno 2, " +
-                    "or pass -PjsTool=/-PjsToolPath=. Skipping JS build.",
-            )
-            return@doLast
-        }
+            ?: error("No JS toolchain found (bun, npm, deno). Install Node >= 22.18, Bun or Deno 2, or pass -PjsTool=/-PjsToolPath=.")
 
         logger.lifecycle("Building JS bundles with ${tool.kind} (${tool.exe})")
         // Put the tool's own dir on PATH so nested calls (npm -> node, script -> bin shims) resolve.
