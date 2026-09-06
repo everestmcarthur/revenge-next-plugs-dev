@@ -1,0 +1,27 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.you-bar-plus",
+	"name": "YouBar+",
+	"description": "Customize your YouBar bottom navigation bar with Direct Messages and Settings shortcuts.",
+	"author": "Rosie",
+	"icon": "ChannelsIcon",
+	"version": "1.0.10",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		},
+		"dev.everestmcarthur.lib": {
+			"version": ">=1.0.0"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "dev.everestmcarthur.youbarplus.YouBarPlusPlugin"
+		}
+	}
+}

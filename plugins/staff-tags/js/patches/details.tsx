@@ -100,10 +100,10 @@ export default function patchDetails(storage: JsonStorage<StaffTagsStorage>) {
 						const { guildId, user } = props
 						if (!user) return ret
 
-						const label = (ret as ReactElement)?.props?.label as
-							| ReactElement
+						const label = (ret as any)?.props?.label as
+							| ReactElement<any>
 							| undefined
-						if (!label || !Array.isArray(label.props?.children)) return ret
+						if (!label || !Array.isArray((label.props as any)?.children)) return ret
 
 						// A plain array `.find()`, not `findInReactFiber` - confirmed live that
 						// `findInReactFiber` doesn't match here. It's built for real React fiber
@@ -112,7 +112,7 @@ export default function patchDetails(storage: JsonStorage<StaffTagsStorage>) {
 						// - createElement() output, not yet a fiber). `label.props.children` is a
 						// flat, already-known array, so a direct search needs no fiber-walking helper.
 						const existingTag = (
-							label.props.children as {
+							(label.props as any).children as {
 								type?: { Types?: unknown }
 								props?: any
 							}[]

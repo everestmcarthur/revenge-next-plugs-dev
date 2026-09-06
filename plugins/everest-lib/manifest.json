@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.lib",
+	"name": "Everest Library",
+	"description": "Shared utility modules, Discord finders, navigators, and native helpers for Everest plugins.",
+	"author": "Rosie",
+	"icon": "SettingsIcon",
+	"version": "1.0.9",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "dev.everestmcarthur.lib.EverestLibPlugin"
+		}
+	}
+}
