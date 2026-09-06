@@ -6,6 +6,9 @@ export interface YouBarPlusStorage {
 	showSettingsButton: boolean
 	showNotificationsButton: boolean
 	order: [YouBarButtonId, YouBarButtonId, YouBarButtonId]
+	compactAvatar: boolean
+	hideStatus: boolean
+	compactHeader: boolean
 }
 
 export const DEFAULT_STORAGE: YouBarPlusStorage = {
@@ -13,6 +16,9 @@ export const DEFAULT_STORAGE: YouBarPlusStorage = {
 	showSettingsButton: true,
 	showNotificationsButton: true,
 	order: ['dms', 'notifications', 'settings'],
+	compactAvatar: false,
+	hideStatus: false,
+	compactHeader: false,
 }
 
 export const POSITIONS: YouBarPosition[] = ['left', 'middle', 'right']

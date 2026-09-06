@@ -259,6 +259,33 @@ export default function Settings({
 								arrow
 							/>
 						</TableRowGroup>
+
+						<TableRowGroup title="Compacting">
+							<TableSwitchRow
+								label="Hide Status"
+								subLabel="Hide the custom status row / bubble in the You screen"
+								value={!!storage?.hideStatus}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ hideStatus: v })
+								}
+							/>
+							<TableSwitchRow
+								label="Shrink Profile Picture"
+								subLabel="Reduce avatar size in the You screen profile header"
+								value={!!storage?.compactAvatar}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ compactAvatar: v })
+								}
+							/>
+							<TableSwitchRow
+								label="Compact Header Padding"
+								subLabel="Reduce empty vertical spacing in the You screen header"
+								value={!!storage?.compactHeader}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ compactHeader: v })
+								}
+							/>
+						</TableRowGroup>
 					</Stack>
 				</ScrollView>
 			</View>
