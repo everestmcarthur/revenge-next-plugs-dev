@@ -2,11 +2,11 @@ import { intoChunks } from './lib/split'
 import Settings from './ui/Settings'
 import { DEFAULT_STORAGE, type SplitMessagesStorage } from './lib/types'
 
+const MAX_CHUNKS = 20
+
 function sleep(ms: number): Promise<void> {
 	return new Promise((r) => setTimeout(r, ms))
 }
-
-const SAFE_MAX_LENGTH = 100000
 
 export default plugin<{ jsonStorage: SplitMessagesStorage }>({
 	jsonStorage: {
@@ -40,7 +40,7 @@ export default plugin<{ jsonStorage: SplitMessagesStorage }>({
 		const getUserStore = () => (revenge.discord.flux.Stores as any)?.UserStore
 		const getChannelStore = () => (revenge.discord.flux.Stores as any)?.ChannelStore
 
-		const getRealLimit = () => {
+		const maxLength = () => {
 			try {
 				return getUserStore()?.getCurrentUser?.()?.premiumType === 2 ? 4000 : 2000
 			} catch {
@@ -57,39 +57,15 @@ export default plugin<{ jsonStorage: SplitMessagesStorage }>({
 			}
 		}
 
-		// 1. Raise constants (stops Discord composer from blocking long text / showing popup)
-		try {
-			const constantsMatches = lookupModule(filters.withProps('MAX_MESSAGE_LENGTH'))
-			for (const consts of constantsMatches || []) {
-				if (consts && typeof consts === 'object' && typeof consts.MAX_MESSAGE_LENGTH === 'number') {
-					const origMax = consts.MAX_MESSAGE_LENGTH
-					const origPremium = consts.MAX_MESSAGE_LENGTH_PREMIUM
-
-					consts.MAX_MESSAGE_LENGTH = SAFE_MAX_LENGTH
-					consts.MAX_MESSAGE_LENGTH_PREMIUM = SAFE_MAX_LENGTH
-
-					cleanups.push(() => {
-						try {
-							consts.MAX_MESSAGE_LENGTH = origMax
-							consts.MAX_MESSAGE_LENGTH_PREMIUM = origPremium
-						} catch {}
-					})
-				}
-			}
-		} catch (e) {
-			api.logger.error(`[SplitMessages] Failed to override length constants: ${e}`)
-		}
-
-		// 2. Patch getMaxMessageLength function
+		// 1. Patch getMaxMessageLength
 		const patchMaxLength = (mod: any) => {
-			if (!mod || typeof mod !== 'object') return
-
-			if (typeof mod.getMaxMessageLength === 'function') {
+			const target = mod?.default ?? mod
+			if (typeof target?.getMaxMessageLength === 'function') {
 				try {
 					const unpatch = revenge.patcher.instead(
-						mod,
+						target,
 						'getMaxMessageLength',
-						() => SAFE_MAX_LENGTH,
+						() => 2 ** 30,
 					)
 					cleanups.push(unpatch)
 				} catch (e) {
@@ -105,94 +81,119 @@ export default plugin<{ jsonStorage: SplitMessagesStorage }>({
 			const unsub = getModules(maxLengthFilter, (m) => patchMaxLength(m), { returnNamespace: true })
 			cleanups.push(() => unsub?.())
 		} catch (e) {
-			api.logger.error(`[SplitMessages] Error searching for maxLength module: ${e}`)
+			api.logger.error(`[SplitMessages] Error finding maxLength module: ${e}`)
 		}
 
-		// 3. Patch MessageActions (sendMessage via `before` hook)
+		// 2. Patch MessageActions (sendMessage & editMessage)
+		const sendChunks = async (channelId: string, chunks: string[], template: any, messageActions: any) => {
+			for (const chunk of chunks) {
+				await sleep(delayFor(channelId))
+				await messageActions._sendMessage?.(
+					channelId,
+					{
+						invalidEmojis: template?.invalidEmojis,
+						validNonShortcutEmojis: template?.validNonShortcutEmojis,
+						tts: false,
+						content: chunk,
+					},
+					{},
+				)
+			}
+		}
+
+		const withArg = (args: any[], index: number, value: any) => {
+			const clone = args.slice()
+			clone[index] = value
+			return clone
+		}
+
 		const patchMessageActions = (mod: any) => {
-			if (!mod || typeof mod !== 'object') return
-			const target = mod.default ?? mod
+			const target = mod?.default ?? mod
+			if (!target) return
 
 			if (typeof target.sendMessage === 'function') {
 				try {
-					const unpatchSend = revenge.patcher.before(
+					const unpatchSend = revenge.patcher.instead(
 						target,
 						'sendMessage',
-						(args: any[]) => {
-							try {
-								const channelId = args[0]
-								const message = args[1]
-								const options = args[3]
-								const content: string = message?.content ?? ''
-								const limit = getRealLimit()
-								const hasAttachments = !!options?.attachmentsToUpload?.length
+						(args: any[], orig: any) => {
+							const [channelId, message, , options] = args
+							const content: string = message?.content ?? ''
+							const limit = maxLength()
+							const hasAttachments = !!options?.attachmentsToUpload?.length
 
-								if (content.length <= limit && !hasAttachments) return
-
-								const splitOnWords = !!api.jsonStorage.cache?.splitOnWords
-								const maxChunks = api.jsonStorage.cache?.maxChunks || 100
-
-								const chunks = content ? intoChunks(content, limit, splitOnWords) : []
-								if (!chunks || chunks.length === 0) return
-
-								if (chunks.length > maxChunks) {
-									args[1].content = ''
-									try {
-										const { Alert } = revenge.react.ReactNative
-										Alert.alert('Message Too Long', `The message exceeds the maximum chunk limit (${maxChunks} chunks).`)
-									} catch {}
-									return
-								}
-
-								if (hasAttachments) {
-									args[1].content = ''
-									void (async () => {
-										for (const chunk of chunks) {
-											await sleep(delayFor(channelId))
-											await target._sendMessage?.(
-												channelId,
-												{
-													invalidEmojis: message.invalidEmojis,
-													validNonShortcutEmojis: message.validNonShortcutEmojis,
-													tts: false,
-													content: chunk,
-												},
-												{},
-											)
-										}
-									})()
-									return
-								}
-
-								// Mutate first chunk into args[1].content so native sendMessage handles chunk 0 seamlessly!
-								args[1].content = chunks.shift()
-
-								// Send remaining chunks sequentially
-								if (chunks.length > 0) {
-									void (async () => {
-										for (const chunk of chunks) {
-											await sleep(delayFor(channelId))
-											await target._sendMessage?.(
-												channelId,
-												{
-													invalidEmojis: message.invalidEmojis,
-													validNonShortcutEmojis: message.validNonShortcutEmojis,
-													tts: false,
-													content: chunk,
-												},
-												{},
-											)
-										}
-									})()
-								}
-							} catch (err) {
-								console.error('[SplitMessages] Error in sendMessage before hook:', err)
+							if (content.length <= limit && !hasAttachments) {
+								return orig.apply(target, args)
 							}
+
+							const splitOnWords = !!api.jsonStorage.cache?.splitOnWords
+							const maxChunks = api.jsonStorage.cache?.maxChunks || MAX_CHUNKS
+
+							const chunks = content ? intoChunks(content, limit, splitOnWords) : []
+							if (!chunks || chunks.length === 0 || chunks.length > maxChunks) {
+								try {
+									const { Alert } = revenge.react.ReactNative
+									Alert.alert('Message Too Long', `Message exceeds chunk limit (${maxChunks} chunks).`)
+								} catch {}
+								return
+							}
+
+							return (async () => {
+								if (hasAttachments) {
+									await sendChunks(channelId, chunks, message, target)
+									if (chunks.length) await sleep(delayFor(channelId))
+									await orig.apply(target, withArg(args, 1, { ...message, content: '' }))
+									return
+								}
+
+								const first = { ...message, content: chunks.shift() }
+								await orig.apply(target, withArg(args, 1, first))
+								await sendChunks(channelId, chunks, message, target)
+							})()
 						},
 					)
 					cleanups.push(unpatchSend)
 				} catch (e) {
 					api.logger.error(`[SplitMessages] Failed to patch sendMessage: ${e}`)
+				}
+			}
+
+			if (typeof target.editMessage === 'function') {
+				try {
+					const unpatchEdit = revenge.patcher.instead(
+						target,
+						'editMessage',
+						(args: any[], orig: any) => {
+							const [channelId, , message] = args
+							const content: string = message?.content ?? ''
+							const limit = maxLength()
+
+							if (content.length <= limit) {
+								return orig.apply(target, args)
+							}
+
+							const splitOnWords = !!api.jsonStorage.cache?.splitOnWords
+							const maxChunks = api.jsonStorage.cache?.maxChunks || MAX_CHUNKS
+
+							const chunks = intoChunks(content, limit, splitOnWords)
+							if (!chunks || chunks.length === 0 || chunks.length > maxChunks) {
+								try {
+									const { Alert } = revenge.react.ReactNative
+									Alert.alert('Message Too Long', `Message exceeds chunk limit (${maxChunks} chunks).`)
+								} catch {}
+								return
+							}
+
+							return (async () => {
+								const result = await orig.apply(target, withArg(args, 2, { ...message, content: chunks.shift() }))
+								await sendChunks(channelId, chunks, message, target)
+								return result
+							})()
+						},
+					)
+					cleanups.push(unpatchEdit)
+				} catch (e) {
+					api.logger.error(`[SplitMessages] Failed to patch editMessage: ${e}`)
 				}
 			}
 		}
@@ -204,7 +205,7 @@ export default plugin<{ jsonStorage: SplitMessagesStorage }>({
 			const unsubActions = getModules(msgActionsFilter, (m) => patchMessageActions(m), { returnNamespace: true })
 			cleanups.push(() => unsubActions?.())
 		} catch (e) {
-			api.logger.error(`[SplitMessages] Error searching for MessageActions: ${e}`)
+			api.logger.error(`[SplitMessages] Error finding MessageActions: ${e}`)
 		}
 
 		api.cleanup(() => {
