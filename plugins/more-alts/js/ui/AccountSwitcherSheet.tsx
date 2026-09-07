@@ -103,16 +103,12 @@ export function openAccountSwitcherSheet(storage: JsonStorage<MoreAltsStorage>) 
 																? 'Discord Account'
 																: `@${acc.username}`
 													}
-													onPress={isCurrent ? undefined : () => handleSwitch(acc)}
+													onPress={isCurrent || !!loadingToken ? undefined : () => handleSwitch(acc)}
 													trailing={
-														!isCurrent ? (
-															<Button
-																size="sm"
-																variant="primary"
-																text={isLoading ? '...' : 'Switch'}
-																disabled={!!loadingToken}
-																onPress={() => handleSwitch(acc)}
-															/>
+														isLoading ? (
+															<Text variant="text-sm/normal" color="text-muted">
+																Switching...
+															</Text>
 														) : null
 													}
 												/>

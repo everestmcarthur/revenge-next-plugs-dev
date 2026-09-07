@@ -1,0 +1,23 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.split-messages",
+	"name": "Split Messages",
+	"description": "Automatically splits messages over Discord's character limit into multiple sequential messages instead of blocking the send.",
+	"author": "Rosie",
+	"icon": "ChatIcon",
+	"version": "1.1.4",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		},
+		"dev.everestmcarthur.lib": {
+			"version": ">=1.0.0"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

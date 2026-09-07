@@ -432,23 +432,14 @@ export default function Settings({
 														? 'Discord Account'
 														: `Added: ${formatDate(acc.addedAt)}`
 											}
+											onPress={isCurrent ? undefined : () => handleSwitch(acc)}
 											trailing={
-												<View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-													{!isCurrent && (
-														<Button
-															size="sm"
-															variant="secondary"
-															text="Switch"
-															onPress={() => handleSwitch(acc)}
-														/>
-													)}
-													<Button
-														size="sm"
-														variant="destructive"
-														text="✕"
-														onPress={() => handleRemove(acc)}
-													/>
-												</View>
+												<Button
+													size="sm"
+													variant="destructive"
+													text="✕"
+													onPress={() => handleRemove(acc)}
+												/>
 											}
 										/>
 									)
