@@ -9,6 +9,13 @@ export interface YouBarPlusStorage {
 	compactAvatar: boolean
 	hideStatus: boolean
 	compactHeader: boolean
+	moduleCache?: {
+		statusRowId?: number
+		profileContentId?: number
+		youBarButtonId?: number
+		userSettingsId?: number
+		transitionRouterId?: number
+	}
 }
 
 export const DEFAULT_STORAGE: YouBarPlusStorage = {
@@ -19,6 +26,7 @@ export const DEFAULT_STORAGE: YouBarPlusStorage = {
 	compactAvatar: false,
 	hideStatus: false,
 	compactHeader: false,
+	moduleCache: {},
 }
 
 export const POSITIONS: YouBarPosition[] = ['left', 'middle', 'right']
@@ -51,3 +59,22 @@ export function setButtonPosition(
 	return newOrder
 }
 
+export async function saveCachedModuleId(
+	storage: any,
+	key: keyof NonNullable<YouBarPlusStorage['moduleCache']>,
+	id: number,
+) {
+	try {
+		const current = await storage.get()
+		const currentCache = current?.moduleCache ?? {}
+		if (currentCache[key] === id) return
+		await storage.set({
+			...DEFAULT_STORAGE,
+			...current,
+			moduleCache: {
+				...currentCache,
+				[key]: id,
+			},
+		})
+	} catch {}
+}
