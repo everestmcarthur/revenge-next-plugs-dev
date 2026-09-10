@@ -263,7 +263,7 @@ export default function Settings({
 						<TableRowGroup title="Compacting">
 							<TableSwitchRow
 								label="Hide Status"
-								subLabel="Hide the custom status row / bubble in the You screen"
+								subLabel="Hide status underneath your name on the YouBar pill"
 								value={!!storage?.hideStatus}
 								onValueChange={(v: boolean) =>
 									api.jsonStorage.set({ hideStatus: v })
@@ -271,7 +271,7 @@ export default function Settings({
 							/>
 							<TableSwitchRow
 								label="Shrink Profile Picture"
-								subLabel="Reduce avatar size in the You screen profile header"
+								subLabel="Reduce profile picture size on the YouBar pill"
 								value={!!storage?.compactAvatar}
 								onValueChange={(v: boolean) =>
 									api.jsonStorage.set({ compactAvatar: v })
@@ -279,7 +279,7 @@ export default function Settings({
 							/>
 							<TableSwitchRow
 								label="Compact Header Padding"
-								subLabel="Reduce empty vertical spacing in the You screen header"
+								subLabel="Reduce vertical padding of the YouBar pill container"
 								value={!!storage?.compactHeader}
 								onValueChange={(v: boolean) =>
 									api.jsonStorage.set({ compactHeader: v })

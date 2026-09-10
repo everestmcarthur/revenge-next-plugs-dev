@@ -1,445 +1,308 @@
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import {
 	DEFAULT_STORAGE,
-	saveCachedModuleId,
 	type YouBarPlusStorage,
 } from '../lib/types'
-
-const STATUS_NAMES = ['CustomStatusEntryRow', 'GravityCustomStatusEntryRow']
-const PROFILE_NAMES = ['YouScreenUserProfileContent']
-
-const CANDIDATE_STATUS_IDS = [16544, 16545]
-const CANDIDATE_PROFILE_IDS = [16840]
-
-function isStatusRow(exports: any): boolean {
-	if (!exports) return false
-	const t = exports?.default ?? exports
-	const name =
-		t?.name ||
-		t?.displayName ||
-		t?.type?.name ||
-		t?.type?.displayName ||
-		exports?.name ||
-		exports?.displayName
-	return STATUS_NAMES.includes(name)
-}
-
-function isProfileContent(exports: any): boolean {
-	if (!exports) return false
-	const t = exports?.default ?? exports
-	const name =
-		t?.name ||
-		t?.displayName ||
-		t?.type?.name ||
-		t?.type?.displayName ||
-		exports?.name ||
-		exports?.displayName
-	return PROFILE_NAMES.includes(name)
-}
 
 export default function patchCompactYou(
 	storage: JsonStorage<YouBarPlusStorage>,
 ): () => void {
 	const cleanups: Array<() => void> = []
-	const patchedStatusTargets = new WeakSet<object>()
-	const patchedProfileTargets = new WeakSet<object>()
+	const patchedTargets = new WeakSet<object>()
 	const React = revenge.react.React
-
-	const saveModuleId = (
-		key: 'statusRowId' | 'profileContentId',
-		id: number | undefined,
-	) => {
-		if (typeof id !== 'number') return
-		saveCachedModuleId(storage, key, id)
-	}
+	const RN = revenge.react.ReactNative
 
 	const getCurrentStorage = (): YouBarPlusStorage => ({
 		...DEFAULT_STORAGE,
 		...(storage.cache ?? {}),
 	})
 
-	// 1. Hide Custom Status Row
-	const patchStatusRow = (mod: any, id?: number) => {
-		if (!mod) return
-		const target = mod?.default ?? mod
-		if (
-			!target ||
-			(typeof target !== 'function' && typeof target !== 'object')
-		)
-			return
-		if (patchedStatusTargets.has(target)) return
-		patchedStatusTargets.add(target)
-
-		if (id !== undefined) saveModuleId('statusRowId', id)
-
-		try {
-			if (typeof revenge.react?.jsxRuntime?.insteadJSX === 'function') {
-				const unpatchJSX = revenge.react.jsxRuntime.insteadJSX(
-					target,
-					(args: any[], origJSX: any) => {
-						const OrigComp = args[0]
-						const WrappedStatus = (props: any) => {
-							const [, forceUpdate] = React.useReducer(
-								(x: number) => x + 1,
-								0,
-							)
-							React.useEffect(() => {
-								const unsub = storage.subscribe(() =>
-									forceUpdate(),
-								)
-								return () => unsub?.()
-							}, [])
-
-							const current = getCurrentStorage()
-							if (current.hideStatus) {
-								return null
-							}
-							return React.createElement(OrigComp, props)
-						}
-						return origJSX(WrappedStatus, args[1], args[2])
-					},
-				)
-				cleanups.push(unpatchJSX)
-			}
-		} catch {}
-
-		try {
-			if (mod && mod.default === target) {
-				const unpatch = revenge.patcher.instead(
-					mod,
-					'default',
-					(args: any[], Original: any) => {
-						const current = getCurrentStorage()
-						if (current.hideStatus) {
-							return null
-						}
-						return Original
-							? Original(...args)
-							: target(...args)
-					},
-				)
-				cleanups.push(unpatch)
-			} else if (
-				typeof target === 'object' &&
-				typeof target.type === 'function'
-			) {
-				const unpatch = revenge.patcher.instead(
-					target,
-					'type',
-					(args: any[], Original: any) => {
-						const current = getCurrentStorage()
-						if (current.hideStatus) {
-							return null
-						}
-						return Original
-							? Original(...args)
-							: target.type(...args)
-					},
-				)
-				cleanups.push(unpatch)
-			}
-		} catch (e) {
-			console.error('[YouBar+] Failed to patch status row:', e)
-		}
-	}
-
-	// 2. Compact Avatar & Header in YouScreenUserProfileContent
-	const transformProfileContent = (res: any) => {
-		if (!res) return res
-		const current = getCurrentStorage()
-		if (
-			!current.compactAvatar &&
-			!current.hideStatus &&
-			!current.compactHeader
-		) {
-			return res
-		}
-
-		try {
-			const RN = revenge.react.ReactNative
-
-			if (res.props) {
-				const originalStyle = res.props.style || {}
-				const compactedStyle = [
-					originalStyle,
-					current.compactHeader && {
-						paddingTop: 0,
-						paddingBottom: 4,
-						marginTop: -4,
-					},
-				]
-
-				const modifyChildren = (child: any): any => {
-					if (!child) return child
-					if (Array.isArray(child)) {
-						return child.map(modifyChildren).filter(Boolean)
+	const resolveModules = () => {
+		if (typeof (globalThis as any).__r !== 'function') return null
+		const req = (globalThis as any).__r
+		const candidates = [16476, 16427]
+		for (const id of candidates) {
+			try {
+				const m = req(id)
+				const comp = m?.YouBarNotificationsButton ?? m?.default ?? m
+				const name = comp?.type?.name || comp?.name || m?.name
+				if (name === 'YouBarNotificationsButton') {
+					const offset = id - 16427
+					return {
+						avatarIds: [16420 + offset, 16421 + offset],
+						headerIds: [16396 + offset, 16417 + offset],
+						nameId: 16422 + offset,
+						statusId: 16423 + offset,
+						constantsId: 15128 + offset,
 					}
-					if (typeof child !== 'object' || !child.props) {
-						return child
-					}
-
-					// Hide custom status if rendered inside profile content
-					if (current.hideStatus) {
-						const typeName =
-							child.type?.name ||
-							child.type?.displayName ||
-							child.type?.type?.name
-						if (
-							typeName &&
-							(STATUS_NAMES.includes(typeName) ||
-								typeName.toLowerCase().includes('customstatus'))
-						) {
-							return null
-						}
-					}
-
-					const p = child.props
-					const flatStyle =
-						RN?.StyleSheet?.flatten(p.style) ||
-						(typeof p.style === 'object' ? p.style : {})
-
-					const isAvatar =
-						Boolean(
-							p.avatar ||
-								p.user?.avatar ||
-								p.user?.avatarURL ||
-								p.avatarUrl,
-						) ||
-						(flatStyle &&
-							typeof flatStyle.width === 'number' &&
-							flatStyle.width >= 50 &&
-							flatStyle.width <= 140 &&
-							Math.abs(
-								flatStyle.width -
-									(flatStyle.height || flatStyle.width),
-							) < 10) ||
-						(typeof child.type?.name === 'string' &&
-							child.type.name
-								.toLowerCase()
-								.includes('avatar'))
-
-					if (isAvatar && current.compactAvatar) {
-						return React.cloneElement(child, {
-							style: [
-								p.style,
-								{
-									transform: [{ scale: 0.75 }],
-									marginVertical: -8,
-								},
-							],
-						})
-					}
-
-					if (p.children) {
-						return React.cloneElement(child, {
-							children: modifyChildren(p.children),
-						})
-					}
-
-					return child
 				}
-
-				return React.cloneElement(res, {
-					style: compactedStyle,
-					children: modifyChildren(res.props.children),
-				})
-			}
-		} catch (e) {
-			console.error(
-				'[YouBar+] Compact profile transform error:',
-				e,
-			)
+			} catch {}
 		}
-
-		return res
+		for (let id = 16400; id <= 16550; id++) {
+			try {
+				const m = req(id)
+				const comp = m?.YouBarNotificationsButton ?? m?.default ?? m
+				const name = comp?.type?.name || comp?.name || m?.name
+				if (name === 'YouBarNotificationsButton') {
+					const offset = id - 16427
+					return {
+						avatarIds: [16420 + offset, 16421 + offset],
+						headerIds: [16396 + offset, 16417 + offset],
+						nameId: 16422 + offset,
+						statusId: 16423 + offset,
+						constantsId: 15128 + offset,
+					}
+				}
+			} catch {}
+		}
+		return {
+			avatarIds: [16469, 16470, 16420, 16421],
+			headerIds: [16445, 16466, 16396, 16417],
+			nameId: 16471,
+			statusId: 16472,
+			constantsId: 15177,
+		}
 	}
 
-	const patchProfileContent = (mod: any, id?: number) => {
-		if (!mod) return
-		const target = mod?.default ?? mod
-		if (
-			!target ||
-			(typeof target !== 'function' && typeof target !== 'object')
-		)
-			return
-		if (patchedProfileTargets.has(target)) return
-		patchedProfileTargets.add(target)
+	const resolved = resolveModules()
 
-		if (id !== undefined) saveModuleId('profileContentId', id)
-
+	const syncConstants = () => {
+		if (typeof (globalThis as any).__r !== 'function' || !resolved) return
 		try {
-			if (typeof revenge.react?.jsxRuntime?.insteadJSX === 'function') {
-				const unpatchJSX = revenge.react.jsxRuntime.insteadJSX(
-					target,
-					(args: any[], origJSX: any) => {
-						const OrigComp = args[0]
-						const WrappedProfile = (props: any) => {
-							const [, forceUpdate] = React.useReducer(
-								(x: number) => x + 1,
-								0,
-							)
-							React.useEffect(() => {
-								const unsub = storage.subscribe(() =>
-									forceUpdate(),
-								)
-								return () => unsub?.()
-							}, [])
-
-							const res = OrigComp(props)
-							return transformProfileContent(res)
-						}
-						return origJSX(WrappedProfile, args[1], args[2])
-					},
-				)
-				cleanups.push(unpatchJSX)
+			const c = (globalThis as any).__r(resolved.constantsId)
+			if (!c) return
+			const current = getCurrentStorage()
+			c.YOU_BAR_HEIGHT = current.compactHeader ? 44 : 56
+			c.YOU_BAR_PADDING = current.compactHeader ? 4 : 12
+			if (current.compactAvatar) {
+				c.YOU_BAR_AVATAR_LARGE_PX = 45
+			} else {
+				c.YOU_BAR_AVATAR_LARGE_PX = 60
 			}
 		} catch {}
-
-		try {
-			if (mod && mod.default === target) {
-				const unpatch = revenge.patcher.after(
-					mod,
-					'default',
-					(_args: any[], res: any) =>
-						transformProfileContent(res),
-				)
-				cleanups.push(unpatch)
-			} else if (
-				typeof target === 'object' &&
-				typeof target.type === 'function'
-			) {
-				const unpatch = revenge.patcher.after(
-					target,
-					'type',
-					(_args: any[], res: any) =>
-						transformProfileContent(res),
-				)
-				cleanups.push(unpatch)
-			}
-		} catch (e) {
-			console.error(
-				'[YouBar+] Failed to patch YouScreenUserProfileContent:',
-				e,
-			)
-		}
 	}
 
-	// 3. Fast attachment via verified candidate & cached Metro IDs
-	const checkFastCache = (cache?: YouBarPlusStorage['moduleCache']) => {
+	const patchHeaderComponent = (mod: any) => {
+		const target = mod?.default ?? mod
+		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (patchedTargets.has(target)) return
+		patchedTargets.add(target)
+
+		const prop = typeof target.type === 'function' ? 'type' : 'default'
+		const holder = typeof target.type === 'function' ? target : mod
+
+		try {
+			const unpatch = revenge.patcher.instead(
+				holder,
+				prop,
+				(args: any[], orig: any) => {
+					const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
+					React.useEffect(() => {
+						const unsub = storage.subscribe(() => {
+							syncConstants()
+							forceUpdate()
+						})
+						return () => unsub?.()
+					}, [])
+
+					const res = orig(...args)
+					if (!res) return res
+					const current = getCurrentStorage()
+					if (!current.compactHeader) return res
+
+					return React.cloneElement(res, {
+						style: [
+							res.props?.style,
+							{
+								height: 44,
+								minHeight: 40,
+								paddingVertical: 2,
+							},
+						],
+					})
+				},
+			)
+			cleanups.push(unpatch)
+		} catch {}
+	}
+
+	const patchYouBarAvatar = (mod: any) => {
+		const target = mod?.default ?? mod
+		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (patchedTargets.has(target)) return
+		patchedTargets.add(target)
+
+		const prop = typeof target.type === 'function' ? 'type' : 'default'
+		const holder = typeof target.type === 'function' ? target : mod
+
+		try {
+			const unpatch = revenge.patcher.instead(
+				holder,
+				prop,
+				(args: any[], orig: any) => {
+					const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
+					React.useEffect(() => {
+						const unsub = storage.subscribe(() => {
+							syncConstants()
+							forceUpdate()
+						})
+						return () => unsub?.()
+					}, [])
+
+					const res = orig(...args)
+					if (!res) return res
+					const current = getCurrentStorage()
+					if (!current.compactAvatar) return res
+
+					return React.createElement(
+						RN?.View ?? 'View',
+						{
+							style: {
+								transform: [{ scale: 0.75 }],
+								alignItems: 'center',
+								justifyContent: 'center',
+								marginHorizontal: -4,
+							},
+						},
+						res,
+					)
+				},
+			)
+			cleanups.push(unpatch)
+		} catch {}
+	}
+
+	const patchYouName = (mod: any) => {
+		const target = mod?.default ?? mod
+		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (patchedTargets.has(target)) return
+		patchedTargets.add(target)
+
+		const prop = typeof target.type === 'function' ? 'type' : 'default'
+		const holder = typeof target.type === 'function' ? target : mod
+
+		try {
+			const unpatch = revenge.patcher.instead(
+				holder,
+				prop,
+				(args: any[], orig: any) => {
+					const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
+					React.useEffect(() => {
+						const unsub = storage.subscribe(() => forceUpdate())
+						return () => unsub?.()
+					}, [])
+
+					const res = orig(...args)
+					if (!res) return res
+					const current = getCurrentStorage()
+					if (!current.hideStatus) return res
+
+					if (res.props?.children && Array.isArray(res.props.children)) {
+						return React.cloneElement(res, {
+							children: [res.props.children[0]],
+						})
+					}
+
+					return res
+				},
+			)
+			cleanups.push(unpatch)
+		} catch {}
+	}
+
+	const patchActivityModules = () => {
 		if (typeof (globalThis as any).__r !== 'function') return
 		const req = (globalThis as any).__r
-		const c = cache ?? storage.cache?.moduleCache
 
-		const statusIds = new Set<number>([
-			...(typeof c?.statusRowId === 'number' ? [c.statusRowId] : []),
-			...CANDIDATE_STATUS_IDS,
-		])
-
-		const profileIds = new Set<number>([
-			...(typeof c?.profileContentId === 'number'
-				? [c.profileContentId]
-				: []),
-			...CANDIDATE_PROFILE_IDS,
-		])
-
+		const statusIds = [resolved?.statusId, 16472, 16423].filter(Boolean) as number[]
 		for (const id of statusIds) {
 			try {
-				const mod = req(id)
-				if (isStatusRow(mod)) {
-					patchStatusRow(mod, id)
+				const m = req(id)
+				if (m && typeof m.default === 'function') {
+					const unpatch = revenge.patcher.instead(
+						m,
+						'default',
+						(args: any[], orig: any) => {
+							const current = getCurrentStorage()
+							if (current.hideStatus) return false
+							return orig(...args)
+						},
+					)
+					cleanups.push(unpatch)
 				}
 			} catch {}
 		}
 
-		for (const id of profileIds) {
+		try {
+			const m10908 = req(10908)
+			if (m10908 && typeof m10908.default === 'function') {
+				const unpatch = revenge.patcher.instead(
+					m10908,
+					'default',
+					(args: any[], orig: any) => {
+						const current = getCurrentStorage()
+						if (current.hideStatus) return null
+						return orig(...args)
+					},
+				)
+				cleanups.push(unpatch)
+			}
+		} catch {}
+	}
+
+	const initPatches = () => {
+		syncConstants()
+
+		if (typeof (globalThis as any).__r !== 'function' || !resolved) return
+		const req = (globalThis as any).__r
+
+		for (const id of resolved.headerIds) {
 			try {
-				const mod = req(id)
-				if (isProfileContent(mod)) {
-					patchProfileContent(mod, id)
-				}
+				patchHeaderComponent(req(id))
 			} catch {}
 		}
-	}
 
-	// Synchronous fast cache check
-	checkFastCache()
+		for (const id of resolved.avatarIds) {
+			try {
+				patchYouBarAvatar(req(id))
+			} catch {}
+		}
 
-	// Also check once storage resolves from disk
-	storage
-		.get()
-		.then((data) => {
-			checkFastCache(data?.moduleCache)
-		})
-		.catch(() => {})
-
-	// 4. Dynamic discovery using finders with componentName filter
-	for (const name of STATUS_NAMES) {
 		try {
-			const filter = revenge.modules.finders.filters.createFilterGenerator(
-				([n]: [string], _id: any, exports: any) => {
-					const def = exports?.default
-					return (
-						exports?.name === n ||
-						exports?.displayName === n ||
-						exports?.type?.name === n ||
-						exports?.type?.displayName === n ||
-						def?.name === n ||
-						def?.displayName === n ||
-						def?.type?.name === n ||
-						def?.type?.displayName === n
-					)
-				},
-				([n]: [string]) => `componentName(${n})`,
-				revenge.modules.finders.filters.FilterScopes.All,
-			)(name)
-
-			const res = revenge.modules.finders.lookupModule(filter)
-			if (res && res !== revenge.modules.finders.NotFoundResult && res[0]) {
-				patchStatusRow(res[0], res[1] as number | undefined)
-			}
-
-			const unsub = revenge.modules.finders.getModules(
-				filter,
-				(m, id) => patchStatusRow(m, id as number | undefined),
-				{ cached: true, returnNamespace: true },
-			)
-			cleanups.push(() => unsub?.())
+			patchYouName(req(resolved.nameId))
 		} catch {}
+
+		patchActivityModules()
 	}
 
-	for (const name of PROFILE_NAMES) {
-		try {
-			const filter = revenge.modules.finders.filters.createFilterGenerator(
-				([n]: [string], _id: any, exports: any) => {
-					const def = exports?.default
-					return (
-						exports?.name === n ||
-						exports?.displayName === n ||
-						exports?.type?.name === n ||
-						exports?.type?.displayName === n ||
-						def?.name === n ||
-						def?.displayName === n ||
-						def?.type?.name === n ||
-						def?.type?.displayName === n
-					)
-				},
-				([n]: [string]) => `componentName(${n})`,
-				revenge.modules.finders.filters.FilterScopes.All,
-			)(name)
+	initPatches()
 
-			const res = revenge.modules.finders.lookupModule(filter)
-			if (res && res !== revenge.modules.finders.NotFoundResult && res[0]) {
-				patchProfileContent(res[0], res[1] as number | undefined)
-			}
+	try {
+		const unsubThemed = revenge.modules.finders.getModules(
+			revenge.modules.finders.filters.withName('YouBarThemed'),
+			(m: any) => patchHeaderComponent(m),
+			{ cached: true, returnNamespace: true },
+		)
+		cleanups.push(() => unsubThemed?.())
+	} catch {}
 
-			const unsub = revenge.modules.finders.getModules(
-				filter,
-				(m, id) => patchProfileContent(m, id as number | undefined),
-				{ cached: true, returnNamespace: true },
-			)
-			cleanups.push(() => unsub?.())
-		} catch {}
-	}
+	try {
+		const unsubBg = revenge.modules.finders.getModules(
+			revenge.modules.finders.filters.withName('YouBarBackground'),
+			(m: any) => patchHeaderComponent(m),
+			{ cached: true, returnNamespace: true },
+		)
+		cleanups.push(() => unsubBg?.())
+	} catch {}
+
+	try {
+		const unsubName = revenge.modules.finders.getModules(
+			revenge.modules.finders.filters.withName('YouName'),
+			(m: any) => patchYouName(m),
+			{ cached: true, returnNamespace: true },
+		)
+		cleanups.push(() => unsubName?.())
+	} catch {}
 
 	return () => {
 		for (const fn of cleanups) {

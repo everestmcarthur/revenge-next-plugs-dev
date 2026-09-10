@@ -38,7 +38,6 @@ function getTransitionRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 		return everest
 	}
 
-	// Try cached module ID if available
 	if (typeof (globalThis as any).__r === 'function') {
 		const cachedId = storage?.cache?.moduleCache?.transitionRouterId
 		if (typeof cachedId === 'number') {
@@ -82,7 +81,6 @@ function getUserSettingsRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 		return everest
 	}
 
-	// Try cached module ID if available
 	if (typeof (globalThis as any).__r === 'function') {
 		const cachedId = storage?.cache?.moduleCache?.userSettingsId
 		if (typeof cachedId === 'number') {
@@ -263,9 +261,20 @@ export default function patchYouBarButtons(
 
 				if (renderedButtons.length === 0) return null
 
+				const RN = revenge.react.ReactNative
+
 				return React.createElement(
-					React.Fragment,
-					null,
+					RN?.View ?? React.Fragment,
+					RN?.View
+						? {
+								style: {
+									flexDirection: 'row',
+									alignItems: 'center',
+									justifyContent: 'flex-end',
+									gap: 4,
+								},
+						  }
+						: null,
 					...renderedButtons,
 				)
 			},
@@ -278,20 +287,35 @@ export default function patchYouBarButtons(
 		if (typeof (globalThis as any).__r !== 'function') return
 		const req = (globalThis as any).__r
 		const cachedId = cache?.youBarButtonId ?? storage.cache?.moduleCache?.youBarButtonId
-		if (typeof cachedId === 'number') {
+		const candidates = new Set<number>([
+			...(typeof cachedId === 'number' ? [cachedId] : []),
+			16476,
+			16427,
+		])
+		for (const id of candidates) {
 			try {
-				const mod = req(cachedId)
+				const mod = req(id)
 				if (isYouBarNotificationsButton(mod)) {
-					applyPatch(mod, cachedId)
+					applyPatch(mod, id)
 				}
 			} catch {}
 		}
+
+		if (patchedButtonTargets.size === 0) {
+			for (let id = 16400; id <= 16550; id++) {
+				try {
+					const mod = req(id)
+					if (isYouBarNotificationsButton(mod)) {
+						applyPatch(mod, id)
+						break
+					}
+				} catch {}
+			}
+		}
 	}
 
-	// 1. Check synchronous storage cache if already available
 	checkFastCache()
 
-	// 2. Also check as soon as storage finishes loading from disk
 	storage
 		.get()
 		.then((data) => {
@@ -299,10 +323,9 @@ export default function patchYouBarButtons(
 		})
 		.catch(() => {})
 
-	// 3. Dynamic finder across all scopes with memo-aware componentName filter
 	try {
 		const filter = revenge.modules.finders.filters.createFilterGenerator(
-			([name]: [string], _id: any, exports: any) => {
+			([name]: [string], exports: any) => {
 				const def = exports?.default
 				return (
 					exports?.name === name ||
