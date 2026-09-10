@@ -1,8 +1,15 @@
 import type { JsonStorage } from '@revenge-mod/json-storage'
-import { saveCachedModuleId, type YouBarPlusStorage } from '../lib/types'
+import {
+	DEFAULT_STORAGE,
+	saveCachedModuleId,
+	type YouBarPlusStorage,
+} from '../lib/types'
 
 const STATUS_NAMES = ['CustomStatusEntryRow', 'GravityCustomStatusEntryRow']
 const PROFILE_NAMES = ['YouScreenUserProfileContent']
+
+const CANDIDATE_STATUS_IDS = [16544, 16545]
+const CANDIDATE_PROFILE_IDS = [16840]
 
 function isStatusRow(exports: any): boolean {
 	if (!exports) return false
@@ -36,17 +43,30 @@ export default function patchCompactYou(
 	const cleanups: Array<() => void> = []
 	const patchedStatusTargets = new WeakSet<object>()
 	const patchedProfileTargets = new WeakSet<object>()
+	const React = revenge.react.React
 
-	const saveModuleId = (key: 'statusRowId' | 'profileContentId', id: number | undefined) => {
+	const saveModuleId = (
+		key: 'statusRowId' | 'profileContentId',
+		id: number | undefined,
+	) => {
 		if (typeof id !== 'number') return
 		saveCachedModuleId(storage, key, id)
 	}
+
+	const getCurrentStorage = (): YouBarPlusStorage => ({
+		...DEFAULT_STORAGE,
+		...(storage.cache ?? {}),
+	})
 
 	// 1. Hide Custom Status Row
 	const patchStatusRow = (mod: any, id?: number) => {
 		if (!mod) return
 		const target = mod?.default ?? mod
-		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (
+			!target ||
+			(typeof target !== 'function' && typeof target !== 'object')
+		)
+			return
 		if (patchedStatusTargets.has(target)) return
 		patchedStatusTargets.add(target)
 
@@ -54,17 +74,32 @@ export default function patchCompactYou(
 
 		try {
 			if (typeof revenge.react?.jsxRuntime?.insteadJSX === 'function') {
-				const unpatch = revenge.react.jsxRuntime.insteadJSX(
+				const unpatchJSX = revenge.react.jsxRuntime.insteadJSX(
 					target,
-					(args, jsx) => {
-						if (storage.cache?.hideStatus) {
-							return null
+					(args: any[], origJSX: any) => {
+						const OrigComp = args[0]
+						const WrappedStatus = (props: any) => {
+							const [, forceUpdate] = React.useReducer(
+								(x: number) => x + 1,
+								0,
+							)
+							React.useEffect(() => {
+								const unsub = storage.subscribe(() =>
+									forceUpdate(),
+								)
+								return () => unsub?.()
+							}, [])
+
+							const current = getCurrentStorage()
+							if (current.hideStatus) {
+								return null
+							}
+							return React.createElement(OrigComp, props)
 						}
-						return jsx(...args)
+						return origJSX(WrappedStatus, args[1], args[2])
 					},
 				)
-				cleanups.push(unpatch)
-				return
+				cleanups.push(unpatchJSX)
 			}
 		} catch {}
 
@@ -74,22 +109,31 @@ export default function patchCompactYou(
 					mod,
 					'default',
 					(args: any[], Original: any) => {
-						if (storage.cache?.hideStatus) {
+						const current = getCurrentStorage()
+						if (current.hideStatus) {
 							return null
 						}
-						return Original ? Original(...args) : target(...args)
+						return Original
+							? Original(...args)
+							: target(...args)
 					},
 				)
 				cleanups.push(unpatch)
-			} else if (typeof target === 'object' && typeof target.type === 'function') {
+			} else if (
+				typeof target === 'object' &&
+				typeof target.type === 'function'
+			) {
 				const unpatch = revenge.patcher.instead(
 					target,
 					'type',
 					(args: any[], Original: any) => {
-						if (storage.cache?.hideStatus) {
+						const current = getCurrentStorage()
+						if (current.hideStatus) {
 							return null
 						}
-						return Original ? Original(...args) : target.type(...args)
+						return Original
+							? Original(...args)
+							: target.type(...args)
 					},
 				)
 				cleanups.push(unpatch)
@@ -102,17 +146,17 @@ export default function patchCompactYou(
 	// 2. Compact Avatar & Header in YouScreenUserProfileContent
 	const transformProfileContent = (res: any) => {
 		if (!res) return res
-		const current = storage.cache
+		const current = getCurrentStorage()
 		if (
-			!current?.compactAvatar &&
-			!current?.hideStatus &&
-			!current?.compactHeader
+			!current.compactAvatar &&
+			!current.hideStatus &&
+			!current.compactHeader
 		) {
 			return res
 		}
 
 		try {
-			const React = revenge.react.React
+			const RN = revenge.react.ReactNative
 
 			if (res.props) {
 				const originalStyle = res.props.style || {}
@@ -121,40 +165,69 @@ export default function patchCompactYou(
 					current.compactHeader && {
 						paddingTop: 0,
 						paddingBottom: 4,
+						marginTop: -4,
 					},
 				]
 
 				const modifyChildren = (child: any): any => {
 					if (!child) return child
-					if (Array.isArray(child))
-						return child.map(modifyChildren)
-					if (
-						typeof child !== 'object' ||
-						!child.props
-					)
+					if (Array.isArray(child)) {
+						return child.map(modifyChildren).filter(Boolean)
+					}
+					if (typeof child !== 'object' || !child.props) {
 						return child
+					}
+
+					// Hide custom status if rendered inside profile content
+					if (current.hideStatus) {
+						const typeName =
+							child.type?.name ||
+							child.type?.displayName ||
+							child.type?.type?.name
+						if (
+							typeName &&
+							(STATUS_NAMES.includes(typeName) ||
+								typeName.toLowerCase().includes('customstatus'))
+						) {
+							return null
+						}
+					}
 
 					const p = child.props
-					if (
-						p.avatar ||
-						p.user?.avatar ||
-						(typeof p.style === 'object' &&
-							p.style?.width >= 64 &&
-							p.style?.height >= 64)
-					) {
-						if (current.compactAvatar) {
-							return React.cloneElement(child, {
-								style: [
-									p.style,
-									{
-										transform: [
-											{ scale: 0.75 },
-										],
-										marginVertical: -8,
-									},
-								],
-							})
-						}
+					const flatStyle =
+						RN?.StyleSheet?.flatten(p.style) ||
+						(typeof p.style === 'object' ? p.style : {})
+
+					const isAvatar =
+						Boolean(
+							p.avatar ||
+								p.user?.avatar ||
+								p.user?.avatarURL ||
+								p.avatarUrl,
+						) ||
+						(flatStyle &&
+							typeof flatStyle.width === 'number' &&
+							flatStyle.width >= 50 &&
+							flatStyle.width <= 140 &&
+							Math.abs(
+								flatStyle.width -
+									(flatStyle.height || flatStyle.width),
+							) < 10) ||
+						(typeof child.type?.name === 'string' &&
+							child.type.name
+								.toLowerCase()
+								.includes('avatar'))
+
+					if (isAvatar && current.compactAvatar) {
+						return React.cloneElement(child, {
+							style: [
+								p.style,
+								{
+									transform: [{ scale: 0.75 }],
+									marginVertical: -8,
+								},
+							],
+						})
 					}
 
 					if (p.children) {
@@ -184,20 +257,41 @@ export default function patchCompactYou(
 	const patchProfileContent = (mod: any, id?: number) => {
 		if (!mod) return
 		const target = mod?.default ?? mod
-		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (
+			!target ||
+			(typeof target !== 'function' && typeof target !== 'object')
+		)
+			return
 		if (patchedProfileTargets.has(target)) return
 		patchedProfileTargets.add(target)
 
 		if (id !== undefined) saveModuleId('profileContentId', id)
 
 		try {
-			if (typeof revenge.react?.jsxRuntime?.afterJSX === 'function') {
-				const unpatch = revenge.react.jsxRuntime.afterJSX(
+			if (typeof revenge.react?.jsxRuntime?.insteadJSX === 'function') {
+				const unpatchJSX = revenge.react.jsxRuntime.insteadJSX(
 					target,
-					(element: any) => transformProfileContent(element),
+					(args: any[], origJSX: any) => {
+						const OrigComp = args[0]
+						const WrappedProfile = (props: any) => {
+							const [, forceUpdate] = React.useReducer(
+								(x: number) => x + 1,
+								0,
+							)
+							React.useEffect(() => {
+								const unsub = storage.subscribe(() =>
+									forceUpdate(),
+								)
+								return () => unsub?.()
+							}, [])
+
+							const res = OrigComp(props)
+							return transformProfileContent(res)
+						}
+						return origJSX(WrappedProfile, args[1], args[2])
+					},
 				)
-				cleanups.push(unpatch)
-				return
+				cleanups.push(unpatchJSX)
 			}
 		} catch {}
 
@@ -206,14 +300,19 @@ export default function patchCompactYou(
 				const unpatch = revenge.patcher.after(
 					mod,
 					'default',
-					(_args: any[], res: any) => transformProfileContent(res),
+					(_args: any[], res: any) =>
+						transformProfileContent(res),
 				)
 				cleanups.push(unpatch)
-			} else if (typeof target === 'object' && typeof target.type === 'function') {
+			} else if (
+				typeof target === 'object' &&
+				typeof target.type === 'function'
+			) {
 				const unpatch = revenge.patcher.after(
 					target,
 					'type',
-					(_args: any[], res: any) => transformProfileContent(res),
+					(_args: any[], res: any) =>
+						transformProfileContent(res),
 				)
 				cleanups.push(unpatch)
 			}
@@ -225,26 +324,38 @@ export default function patchCompactYou(
 		}
 	}
 
-	// 3. Fast attachment via verified cached Metro IDs
+	// 3. Fast attachment via verified candidate & cached Metro IDs
 	const checkFastCache = (cache?: YouBarPlusStorage['moduleCache']) => {
 		if (typeof (globalThis as any).__r !== 'function') return
 		const req = (globalThis as any).__r
 		const c = cache ?? storage.cache?.moduleCache
 
-		if (typeof c?.statusRowId === 'number') {
+		const statusIds = new Set<number>([
+			...(typeof c?.statusRowId === 'number' ? [c.statusRowId] : []),
+			...CANDIDATE_STATUS_IDS,
+		])
+
+		const profileIds = new Set<number>([
+			...(typeof c?.profileContentId === 'number'
+				? [c.profileContentId]
+				: []),
+			...CANDIDATE_PROFILE_IDS,
+		])
+
+		for (const id of statusIds) {
 			try {
-				const mod = req(c.statusRowId)
+				const mod = req(id)
 				if (isStatusRow(mod)) {
-					patchStatusRow(mod, c.statusRowId)
+					patchStatusRow(mod, id)
 				}
 			} catch {}
 		}
 
-		if (typeof c?.profileContentId === 'number') {
+		for (const id of profileIds) {
 			try {
-				const mod = req(c.profileContentId)
+				const mod = req(id)
 				if (isProfileContent(mod)) {
-					patchProfileContent(mod, c.profileContentId)
+					patchProfileContent(mod, id)
 				}
 			} catch {}
 		}
@@ -338,4 +449,3 @@ export default function patchCompactYou(
 		}
 	}
 }
-
