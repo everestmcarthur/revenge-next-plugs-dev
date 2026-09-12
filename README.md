@@ -16,7 +16,13 @@ will never see the update, since they only re-fetch an artifact when its version
 
 ## Plugins
 
-- `staff-tags` — ported from [revenge-plugins](https://github.com/everestmcarthur/revenge-plugins) (Classic).
+- `you-bar-plus` — Customize your YouBar bottom navigation bar with Direct Messages and Settings shortcuts, compact mode, and avatar sizing.
+- `staff-tags` — Adds customizable staff tags next to members based on permissions; ported from [revenge-plugins](https://github.com/everestmcarthur/revenge-plugins) (Classic).
+- `more-alts` — Manage and switch between multiple Discord accounts, plus unlocks Discord's native account switcher.
+- `radial-status` — Replaces the presence dot on avatars with customizable colored radial rings.
+- `split-messages` — Automatically splits messages exceeding the character limit into sequential messages.
+- `themeify` — Native redesign theme manager for modern Discord Android.
+- `everest-lib` — Shared utility modules, Discord finders, navigators, and native helpers for Everest plugins.
 
 A plugin has up to three parts. Its own `manifest.json` declares all of them:
 
@@ -290,3 +296,23 @@ adb reverse tcp:8080 tcp:8080
 
 The server rescans the dist folder on every index request.
 Bump a manifest version, rebuild that plugin, and check for updates on the device. The new version will appear.
+
+## Discord Module ID Tracking
+
+Discord updates regularly shift internal Metro module IDs, which can break plugins relying on specific internal component IDs. To resolve this, this repository implements an automated module update system:
+
+- **`scripts/update-discord-module-ids.mjs`**: Fetches the latest module paths and IDs from `lvwmwm/decord` (`data` branch) and updates the shared module dictionary. If any IDs change, it automatically bumps the patch version of all plugins importing `@shared`.
+- **`plugins/shared/discord-modules.ts`**: The central store of Discord Metro module IDs, imported in plugins via the `@shared` alias.
+
+To sync with the latest Discord build:
+
+```sh
+bun scripts/update-discord-module-ids.mjs
+```
+
+## Credits & Acknowledgements
+
+- **[Kmio (kmmiio99o)](https://github.com/kmmiio99o)** ([kmmiio99o.dev](https://kmmiio99o.dev)) — Huge thanks and full credits to **Kmio** for creating the Discord module ID tracking system and the `update-discord-module-ids.mjs` script from [`kmmiio-revenge-next-plugins`](https://github.com/kmmiio99o/revenge-next-plugins). This automated workflow keeps plugins functional across Discord updates by tracking decord data and automatically managing dependent plugin version bumps.
+- **[lvwmwm/decord](https://github.com/lvwmwm/decord)** — For maintaining the `data` branch with continuous Discord Android Metro module mapping.
+- **[Revenge Mod](https://github.com/revenge-mod)** — For the Revenge Next framework and tooling.
+

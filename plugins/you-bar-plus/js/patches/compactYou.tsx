@@ -1,3 +1,4 @@
+import { discordModules } from '@shared'
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import {
 	DEFAULT_STORAGE,
@@ -20,66 +21,94 @@ export default function patchCompactYou(
 	const resolveModules = () => {
 		if (typeof (globalThis as any).__r !== 'function') return null
 		const req = (globalThis as any).__r
-		const candidates = [16476, 16427]
+
+		const notifButtonId = discordModules['modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx']
+		const candidates = [notifButtonId, 16488, 16464, 16476, 16427].filter(Boolean) as number[]
+		let notifId: number | null = null
+
 		for (const id of candidates) {
 			try {
 				const m = req(id)
 				const comp = m?.YouBarNotificationsButton ?? m?.default ?? m
 				const name = comp?.type?.name || comp?.name || m?.name
-				if (name === 'YouBarNotificationsButton') {
-					const offset = id - 16427
-					return {
-						avatarIds: [16420 + offset, 16421 + offset],
-						headerIds: [16396 + offset, 16417 + offset],
-						nameId: 16422 + offset,
-						statusId: 16423 + offset,
-						constantsId: 15128 + offset,
-					}
+				if (name === 'YouBarNotificationsButton' || (comp as any)?.__isYouBarNotificationsButton || (comp as any)?.type?.__isYouBarNotificationsButton || (m as any)?.__isYouBarNotificationsButton) {
+					notifId = id
+					break
 				}
 			} catch {}
 		}
-		for (let id = 16400; id <= 16550; id++) {
-			try {
-				const m = req(id)
-				const comp = m?.YouBarNotificationsButton ?? m?.default ?? m
-				const name = comp?.type?.name || comp?.name || m?.name
-				if (name === 'YouBarNotificationsButton') {
-					const offset = id - 16427
-					return {
-						avatarIds: [16420 + offset, 16421 + offset],
-						headerIds: [16396 + offset, 16417 + offset],
-						nameId: 16422 + offset,
-						statusId: 16423 + offset,
-						constantsId: 15128 + offset,
+
+		if (notifId === null) {
+			const base = typeof notifButtonId === 'number' ? notifButtonId : 16464
+			for (let id = base - 50; id <= base + 100; id++) {
+				try {
+					const m = req(id)
+					const comp = m?.YouBarNotificationsButton ?? m?.default ?? m
+					const name = comp?.type?.name || comp?.name || m?.name
+					if (name === 'YouBarNotificationsButton' || (comp as any)?.__isYouBarNotificationsButton || (comp as any)?.type?.__isYouBarNotificationsButton || (m as any)?.__isYouBarNotificationsButton) {
+						notifId = id
+						break
 					}
-				}
-			} catch {}
+				} catch {}
+			}
 		}
+
+		let constantsId: number | undefined
+		try {
+			const { filters, lookupModule } = revenge.modules.finders
+			const cRes = lookupModule(filters.withProps('YOU_BAR_HEIGHT', 'YOU_BAR_PADDING'))
+			if (cRes && cRes !== revenge.modules.finders.NotFoundResult && typeof cRes[1] === 'number') {
+				constantsId = cRes[1]
+			}
+		} catch {}
+
+		const baseNotif = discordModules['modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx'] || 16464
+		const offset = notifId !== null ? notifId - baseNotif : 0
+
 		return {
-			avatarIds: [16469, 16470, 16420, 16421],
-			headerIds: [16445, 16466, 16396, 16417],
-			nameId: 16471,
-			statusId: 16472,
-			constantsId: 15177,
+			avatarIds: [
+				discordModules['modules/main_tabs_v2/native/you_bar/YouBarAvatarDefault.tsx'] + offset,
+				discordModules['modules/main_tabs_v2/native/you_bar/YouBarAvatar.tsx'] + offset,
+			],
+			headerIds: [
+				discordModules['modules/main_tabs_v2/native/you_bar/YouBarBackground.tsx'] + offset,
+				discordModules['modules/main_tabs_v2/native/you_bar/YouBar.tsx'] + offset,
+			],
+			nameId: discordModules['modules/main_tabs_v2/native/you_bar/YouBarName.tsx'] + offset,
+			statusId: discordModules['modules/main_tabs_v2/native/you_bar/YouBarActivityStatusExperiment.tsx'] + offset,
+			constantsId: constantsId ?? (discordModules['modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx'] + offset),
 		}
 	}
 
 	const resolved = resolveModules()
 
 	const syncConstants = () => {
-		if (typeof (globalThis as any).__r !== 'function' || !resolved) return
-		try {
-			const c = (globalThis as any).__r(resolved.constantsId)
-			if (!c) return
-			const current = getCurrentStorage()
-			c.YOU_BAR_HEIGHT = current.compactHeader ? 44 : 56
-			c.YOU_BAR_PADDING = current.compactHeader ? 4 : 12
-			if (current.compactAvatar) {
-				c.YOU_BAR_AVATAR_LARGE_PX = 45
-			} else {
-				c.YOU_BAR_AVATAR_LARGE_PX = 60
-			}
-		} catch {}
+		if (typeof (globalThis as any).__r !== 'function') return
+		const req = (globalThis as any).__r
+		let c: any
+		if (resolved?.constantsId) {
+			try {
+				c = req(resolved.constantsId)
+			} catch {}
+		}
+		if (!c?.YOU_BAR_HEIGHT) {
+			try {
+				const { filters, lookupModule } = revenge.modules.finders
+				const res = lookupModule(filters.withProps('YOU_BAR_HEIGHT', 'YOU_BAR_PADDING'))
+				if (res && res !== revenge.modules.finders.NotFoundResult) {
+					c = res[0]
+				}
+			} catch {}
+		}
+		if (!c?.YOU_BAR_HEIGHT) return
+		const current = getCurrentStorage()
+		c.YOU_BAR_HEIGHT = current.compactHeader ? 44 : 56
+		c.YOU_BAR_PADDING = current.compactHeader ? 4 : 12
+		if (current.compactAvatar) {
+			c.YOU_BAR_AVATAR_LARGE_PX = 45
+		} else {
+			c.YOU_BAR_AVATAR_LARGE_PX = 60
+		}
 	}
 
 	const patchHeaderComponent = (mod: any) => {
