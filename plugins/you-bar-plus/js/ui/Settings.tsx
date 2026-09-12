@@ -182,6 +182,14 @@ export default function Settings({
 								}
 							/>
 							<TableSwitchRow
+								label="Double Tap DM to Return"
+								subLabel="Double tap while in DMs to return to your previous server/channel"
+								value={storage?.doubleTapReturn !== false}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ doubleTapReturn: v })
+								}
+							/>
+							<TableSwitchRow
 								label="Notifications Button"
 								subLabel="Show the standard Notifications button"
 								value={storage?.showNotificationsButton !== false}

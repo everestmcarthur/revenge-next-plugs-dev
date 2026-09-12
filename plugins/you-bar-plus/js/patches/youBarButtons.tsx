@@ -130,6 +130,75 @@ function getUserSettingsRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 	return undefined
 }
 
+let lastDmTapTime = 0
+let lastSavedNonDmLocation: { guildId: string; channelId?: string } | null = null
+
+export function getCurrentNonDmLocation(): { guildId: string; channelId?: string } | null {
+	try {
+		const guildStore = revenge.modules.finders.lookupModule(
+			revenge.modules.finders.filters.withProps('getGuildId', 'getLastSelectedGuildId'),
+		)?.[0]
+		const channelStore =
+			revenge.everest?.getSelectedChannelStore?.() ||
+			revenge.modules.finders.lookupModule(
+				revenge.modules.finders.filters.withProps('getChannelId', 'getLastSelectedChannelId'),
+			)?.[0]
+
+		const currentGuildId = guildStore?.getGuildId()
+		if (currentGuildId && currentGuildId !== '@me') {
+			const channelId =
+				channelStore?.getChannelId?.(currentGuildId) ||
+				channelStore?.getMostRecentSelectedTextChannelId?.(currentGuildId)
+			return { guildId: currentGuildId, channelId }
+		}
+
+		const lastGuildId = guildStore?.getLastSelectedGuildId?.()
+		if (lastGuildId && lastGuildId !== '@me') {
+			const channelId =
+				channelStore?.getChannelId?.(lastGuildId) ||
+				channelStore?.getMostRecentSelectedTextChannelId?.(lastGuildId)
+			return { guildId: lastGuildId, channelId }
+		}
+	} catch {}
+	return null
+}
+
+function handleDmButtonPress(storage?: JsonStorage<YouBarPlusStorage>) {
+	try {
+		const now = Date.now()
+		const router = getTransitionRouter(storage)
+		const nonDm = getCurrentNonDmLocation()
+
+		const guildStore = revenge.modules.finders.lookupModule(
+			revenge.modules.finders.filters.withProps('getGuildId', 'getLastSelectedGuildId'),
+		)?.[0]
+		const currentGuildId = guildStore?.getGuildId()
+		const isCurrentlyInDms = currentGuildId === '@me' || currentGuildId === null
+
+		const doubleTapEnabled = storage?.cache?.doubleTapReturn !== false
+		const isDoubleTap = doubleTapEnabled && now - lastDmTapTime < 2000
+
+		if (isDoubleTap && isCurrentlyInDms) {
+			const target = lastSavedNonDmLocation || nonDm
+			if (target?.guildId) {
+				router?.transitionToGuild?.(target.guildId, target.channelId)
+				lastDmTapTime = 0
+				return
+			}
+		}
+
+		lastDmTapTime = now
+
+		if (!isCurrentlyInDms && nonDm?.guildId) {
+			lastSavedNonDmLocation = nonDm
+		}
+
+		router?.transitionToGuild?.('@me')
+	} catch (e) {
+		console.error('[YouBar+] DM button error:', e)
+	}
+}
+
 export default function patchYouBarButtons(
 	storage: JsonStorage<YouBarPlusStorage>,
 ): () => void {
@@ -239,12 +308,7 @@ export default function patchYouBarButtons(
 								icon: ChatIcon,
 								accessibilityLabel: 'Direct Messages',
 								onPress: () => {
-									try {
-										const router = getTransitionRouter(storage)
-										router?.transitionToGuild?.('@me')
-									} catch (e) {
-										console.error('[YouBar+] DM button error:', e)
-									}
+									handleDmButtonPress(storage)
 								},
 						  })
 						: null

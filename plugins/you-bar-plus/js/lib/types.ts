@@ -5,6 +5,11 @@ export interface YouBarPlusStorage {
 	showDMButton: boolean
 	showSettingsButton: boolean
 	showNotificationsButton: boolean
+	doubleTapReturn?: boolean
+	lastLocation?: {
+		guildId: string
+		channelId?: string
+	}
 	order: [YouBarButtonId, YouBarButtonId, YouBarButtonId]
 	compactAvatar: boolean
 	hideStatus: boolean
@@ -22,6 +27,7 @@ export const DEFAULT_STORAGE: YouBarPlusStorage = {
 	showDMButton: true,
 	showSettingsButton: true,
 	showNotificationsButton: true,
+	doubleTapReturn: true,
 	order: ['dms', 'notifications', 'settings'],
 	compactAvatar: false,
 	hideStatus: false,
