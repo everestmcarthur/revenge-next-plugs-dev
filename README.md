@@ -1,318 +1,170 @@
-# revenge-next-plugs
+# Revenge Next Plugins
 
-Revenge Next plugin repository, scaffolded from [revenge-plugin-template](https://github.com/revenge-mod/revenge-plugin-template).
-Each plugin becomes one ZIP file. One repository can hold any number of plugins under `plugins/`.
+A premier collection of high-performance, modular plugins for **Discord Android** built on the **Revenge Next** framework. 
 
-## Deployment
+Designed specifically for Discord's modern mobile redesign, this repository delivers enhanced navigation, power-user utilities, intelligent notification management, and deep visual customization — combining native Android Kotlin runtimes with React Native TypeScript patches.
 
-This repository auto-deploys to **https://next.jarviscli.dev** on every push to `main`, via the
-GitHub Actions workflow in `.github/workflows/deploy.yml`.
+---
 
-**Every plugin change requires bumping that plugin's `version` in its `manifest.json`.** The deploy
-publishes whatever is on disk under whatever version each `manifest.json` currently declares — if
-you edit a plugin without bumping its version, the deploy silently republishes the exact same
-version pointer with different bytes at the same URL. Clients that already installed that version
-will never see the update, since they only re-fetch an artifact when its version number changes.
+## 📦 Featured Plugins
 
-## Plugins
+| Plugin | ID | Language | Description |
+| :--- | :--- | :--- | :--- |
+| **BetterInbox** | `dev.everestmcarthur.better-inbox` | TS / React Native | Advanced notification management center with categorized tabs, sub-filters, quick action menus, in-app banner blocking, and YouBar+ integration. |
+| **YouBar+** | `dev.everestmcarthur.you-bar-plus` | Kotlin + TS | Complete customization for the bottom navigation bar with Direct Messages, Settings shortcuts, position swapping, compacting, and server list decluttering. |
+| **Split Messages** | `dev.everestmcarthur.split-messages` | TS / React Native | Automatically splits messages exceeding Discord's character limit (2,000 / 4,000) into seamless sequential messages. |
+| **More Alts!** | `dev.everestmcarthur.more-alts` | TS / React Native | Manage multiple Discord accounts and unlock Discord's native multi-account switcher sheet. |
+| **Staff Tags** | `dev.everestmcarthur.staff-tags` | TS / React Native | Adds customizable permission badges (OWNER, ADMIN, STAFF, MOD) next to members in chat and member lists. |
+| **Radial Status** | `dev.everestmcarthur.radial-status` | Kotlin + TS | Replaces standard avatar presence dots with customizable colored radial rings with thickness controls. |
+| **Themeify** | `dev.everest.themeify` | TS / React Native | Native redesign theme manager with custom color palettes and styling. |
+| **Everest Library** | `dev.everestmcarthur.lib` | Kotlin + TS | Shared utility modules, Discord finders, navigators, and native helpers for Everest plugins. |
 
-- `you-bar-plus` — Customize your YouBar bottom navigation bar with Direct Messages and Settings shortcuts, compact mode, and avatar sizing.
-- `staff-tags` — Adds customizable staff tags next to members based on permissions; ported from [revenge-plugins](https://github.com/everestmcarthur/revenge-plugins) (Classic).
-- `more-alts` — Manage and switch between multiple Discord accounts, plus unlocks Discord's native account switcher.
-- `radial-status` — Replaces the presence dot on avatars with customizable colored radial rings.
-- `split-messages` — Automatically splits messages exceeding the character limit into sequential messages.
-- `themeify` — Native redesign theme manager for modern Discord Android.
-- `everest-lib` — Shared utility modules, Discord finders, navigators, and native helpers for Everest plugins.
+---
 
-A plugin has up to three parts. Its own `manifest.json` declares all of them:
+## 🌟 Highlight: BetterInbox
 
-- **`dist.android`** is native Kotlin code. The build compiles it to a DEXed JAR, and the plugin loader loads it with `DexClassLoader`.
-  This code runs early, before the JS bundle.
-- **`dist.script`** is the JavaScript bundle. The Revenge JS side runs it.
+**BetterInbox** completely revamps how you interact with notifications on Discord Android. Instead of an unorganized stream of alerts, BetterInbox captures incoming events via Discord's internal Flux Dispatcher and categorizes them into dedicated, interactive feeds.
 
-## Layout
+### ✨ Key Features
 
-Each folder under `plugins/` is one plugin. A plugin is **native** when it has a `src/main` folder.
-A plugin is **JS-only** when it has only a JS entry file. A plugin can have both.
+- **Categorized Inbox Feeds**:
+  - 🔔 **Mentions**: Filter by **People**, **Roles**, or **Bots** to cut through noise during server raids or high-traffic announcements.
+  - 💬 **Replies**: Isolate direct replies to your messages across all guilds and direct messages.
+  - ❤️ **Reactions**: Track emoji reactions placed on your messages in real time.
+  - 👥 **Friend Requests**: View incoming friend requests and accepted requests in one unified feed.
+  - 🧵 **Threads**: Track thread additions and thread member updates without losing context.
+  - ⚡ **Friend Activity**: Optional tracking of status and activity changes from your close friends.
+- **Interactive Action Sheet & Context Menu**:
+  - Long-press any notification card (or tap the `···` options button) to open the native bottom sheet:
+    - **Jump to Channel / Message**: Instantly transitions navigation straight to the referenced channel and message.
+    - **Jump to Server**: Opens the server home view directly.
+    - **View User Profile**: Opens the native Discord user profile modal.
+    - **Quick Copying**: One-tap copy for **User ID**, **Message ID**, **Channel ID**, **Server ID**, and **Message Content** with instant toast feedback.
+    - **Remove from Inbox**: Dismiss individual notifications cleanly.
+- **In-App Heads-Up Banner Blocker**:
+  - Suppress intrusive in-app notification toasts and sound alerts while actively using Discord. Notifications continue to be recorded cleanly in your BetterInbox without interrupting your flow.
+- **100% Seamless YouBar+ Compatibility**:
+  - When used alongside **YouBar+**, BetterInbox automatically replaces the YouBar notification bell action without conflicting with YouBar+'s DM button, Settings button, button reordering, or compacting modes.
+
+---
+
+## 🧭 Highlight: YouBar+
+
+Customize Discord Android's bottom navigation bar ("YouBar"):
+
+- **Direct Messages Shortcut**: Adds a dedicated DM button directly into your bottom bar. Includes an intelligent **Double-Tap Return** feature: double-tap the DM icon while in direct messages to immediately jump back to your previously active server and channel.
+- **User Settings Shortcut**: One-tap access to your account and Discord settings.
+- **Custom Button Ordering**: Arrange your buttons in any order (`Left`, `Middle`, `Right`) with interactive position swapping in the plugin settings.
+- **Declutter Server List**: Toggle **Hide Built-in DM Button** to remove Discord's duplicate top direct message button in the guild drawer.
+- **Compacting Modes**: Shrink your profile avatar, hide presence status text on the YouBar pill, and reduce vertical bar padding for maximum chat screen real estate.
+
+---
+
+## 🚀 Installation
+
+### In Revenge Next (Android)
+
+1. Open Discord and go to **User Settings** -> **Revenge** -> **Plugins**.
+2. Tap the **Repositories** tab (or **Add Repository**).
+3. Add the official repository URL:
+   ```
+   https://next.jarviscli.dev
+   ```
+4. Switch to the **Browse** tab to search, install, and update plugins with one tap.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+Revenge Next plugins follow a hybrid architecture:
 
 ```
-├── plugins/
-│   ├── example-plugin/            # Native + JS
-│   │   ├── manifest.json          # id, metadata, dist.* paths
-│   │   ├── src/main/kotlin/com/example/plugin/MyPlugin.kt   # -> plugin.jar
-│   │   └── js/index.ts            # -> index.js
-│   ├── example-js-plugin/         # JS-only: no src/main, no dist.android
-│   │   ├── manifest.json
-│   │   └── js/index.ts
-│   ├── example-library/           # Dependency example: the plugin others depend on
-│   └── example-dependent/         # Dependency example: depends on com.example.library
+plugins/
+├── better-inbox/              # JS-only React Native plugin
+│   ├── manifest.json          # Plugin metadata & dependencies
+│   └── js/                    # TypeScript source (compiled to index.js)
+│       ├── index.ts           # Plugin lifecycle (start, cleanup, storage)
+│       ├── lib/               # Flux tracker, navigation router, data models
+│       ├── patches/           # YouBar integration & in-app banner interception
+│       └── ui/                # Notification center, cards, context menu, settings
+├── you-bar-plus/              # Hybrid Native Kotlin + React Native plugin
+│   ├── manifest.json
+│   ├── src/main/kotlin/       # Native DEX JAR (runs early before JS bundle)
+│   └── js/                    # React Native UI & Metro button hook
+└── shared/
+    └── discord-modules.ts     # Automated Discord Metro module ID dictionary
 ```
 
-The bundler looks for the JS entry in this order: `js/index.*`, then `src/index.*`, then `index.*` in the plugin folder.
-Each step accepts `.ts`, `.tsx`, `.js` and `.jsx`.
+- **Android Native (Kotlin)**: Pre-compiled to DEX bytecode (`plugin.jar`) loaded by `DexClassLoader`. Executes before JS initialization for early native hooks and background tasks.
+- **JavaScript / React Native (TypeScript)**: Hermes-optimized bundles (`index.js`) using Revenge's `patcher` (`before`, `after`, `instead`), `discord.flux` store integration, React Native components, and Discord's design system.
+- **Zero-Dependency Architecture**: Plugins declare only reserved dependencies (`revenge.api` and `discord`) to guarantee reliable startup and prevent dependency cycle deadlocks.
 
-To add a plugin, create `plugins/<name>/manifest.json` and add a `src/main` folder for native code, a JS entry file, or both.
+---
 
-## Prerequisites
+## 🔄 Automated Discord Module ID Sync
 
-- **JDK 25 or later** and the **Android SDK**, with `build-tools` and `platform 36`.
-  Don't forget to set `sdk.dir` in `local.properties`, or set the `ANDROID_HOME` environment variable.
-- **A JS runtime** for the JS build: [Node](https://nodejs.org/) 22.18 or later,
-  [Deno](https://deno.com/) 2, or [Bun](https://bun.com/).
-- **The Revenge plugin API in your local Maven repository.** Run this in the `revenge-xposed` repository:
+Discord mobile updates frequently change Metro internal module IDs. To prevent breakage across Discord builds, this repository features an automated synchronization pipeline:
 
-  ```sh
-  ./gradlew :api:publishToMavenLocal
-  ```
+- **`scripts/update-discord-module-ids.mjs`**: Fetches the latest module paths and IDs from [`lvwmwm/decord`](https://github.com/lvwmwm/decord) (`data` branch), updates `plugins/shared/discord-modules.ts`, and automatically bumps the version numbers of dependent plugins.
 
-  The task publishes `io.github.revenge:api`. `gradle/libs.versions.toml` pins the version.
+To sync with the newest Discord release:
 
-## Build
-
-Build and package every plugin:
-
-```sh
-./gradlew packageAllPlugins
-```
-
-The task writes one `build/dist/<id>.zip` per plugin. Each ZIP holds `manifest.json`, the dexed JAR
-of a native plugin, and the JS bundle of a plugin that has one.
-
-Build one plugin, or only one part of it:
-
-```sh
-./gradlew packageExamplePlugin              # one plugin -> build/dist/<id>.zip
-./gradlew :plugins:example-plugin:dexJar    # native only -> plugins/example-plugin/build/outputs/plugin/plugin.jar
-# replace bun with npm if you use node
-bun install                                 # install the dependencies
-bun run build                               # every JS bundle -> plugins/<name>/build/js/index.js
-bun run build example-plugin                # the JS bundle of one plugin
-```
-
-Gradle derives each package task name from the folder name, example: `plugins/example-plugin/` gives `packageExamplePlugin`.
-
-## `manifest.json`
-
-```jsonc
-{
-  "format": 1,                      // manifest format version. Required. Always 1 today.
-  "id": "com.example.plugin",       // also the folder name on disk
-  "name": "Example Plugin",
-  "description": "...",
-  "author": "Your Name",
-  "version": "1.0.0",               // the version of this plugin. Required.
-  "dependencies": {                 // keyed by plugin id
-    "revenge.api": { "version": ">=1" },
-    "discord": { "version": "*" }
-  },
-  "dist": {
-    "script": "index.js",           // relative to the plugin folder
-    "android": {
-      "path": "plugin.jar",         // relative to the plugin folder
-      "class": "com.example.plugin.MyPlugin"  // the class that exposes the `plugin {}` val
-    }
-  }
-}
-```
-
-### `version`
-
-Revenge uses its own version scheme. A version is one or more integer segments.
-One lowercase alphanumeric prerelease label can follow. `1.0.0`, `2026.7` and `1.2.0-beta2` are all valid.
-
-Two rules control the order:
-
-- A short version compares as right-padded. `1.2` equals `1.2.0`.
-- A labeled version always sorts before its bare version. `1.2.0-rc` is lower than `1.2.0`.
-
-This scheme looks like SemVer, but it is not SemVer. A CalVer-shaped version works equally well.
-
-### `dependencies`
-
-`dependencies` is a map, and each key is a plugin id:
-
-```jsonc
-"dependencies": {
-  "com.example.library": { "version": ">=1.0 <2", "optional": false }
-}
-```
-
-Every field inside the value is optional. `{}` means `{ "version": "*" }`, which accepts any version.
-The key itself must still exist. The host never assumes a dependency that you do not declare.
-
-A version range uses explicit bounds only: `<`, `<=`, `=`, `>=` and `>`, separated by spaces.
-The range syntax has no `^` and no `~`. The `"*"` wildcard accepts every version.
-
-Ranges are checked at install time, at every boot, and when the user enables the plugin.
-Plugins don't load when required dependencies fail or don't satisfy the version requirements.
-
-Dependencies are resolved **by ID** against the repositories that the user enabled.
-When a dependency lives in another repository, the user must add that repository before installing the plugin.
-
-The `example-library` and `example-dependent` pair shows this. The dependent declares `"com.example.library": { "version": ">=1" }`.
-An install therefore also installs the library. The library always loads and starts first.
-
-If the library is missing or out of range, the dependent never loads.
-
-### Optional dependencies
-
-`"optional": true` marks a dependency that never blocks your plugin.
-Your plugin still loads when that dependency is missing, out of range, or broken.
-
-When the dependency is present, it loads before your plugin, and its code are linked and made available to your plugin.
-
-To detect the dependency, probe for one of its classes:
-
-```kotlin
-val themesAvailable = runCatching {
-    Class.forName("com.example.themes.ThemeApi", false, javaClass.classLoader)
-}.isSuccess
-```
-
-Keep all code that touches the optional API in a separate adapter class. Reference that class only after the probe succeeds.
-A reference to a missing class stays safe until a code path runs it.
-
-In JS, check if your plugin API is decorated:
-
-```ts
-start({ themes }) {
-    const themesAvailable = !!themes
-}
-```
-
-### Reserved IDs
-
-Two dependency IDs are reserved.
-
-- **`revenge.api`** resolves to the Revenge release version, which is the plugin API version.
-  This dependency is **mandatory**. Constrain it to the API versions you tested, for example `">=1 <2"`.
-- **`discord`** resolves to the Discord app version, for example `>=355.0`.
-
-## Native plugins
-
-A native plugin is a **top-level `val`** that you build with the `plugin {}` DSL. You implement no
-interface, and you subclass nothing. The host reads the class that `dist.android.class` names, and
-takes the first `PluginBuilder` value it exposes. You import and use a Ktor plugin value the same
-way.
-
-```kotlin
-@file:JvmName("MyPlugin") // makes dist.android.class read as com.example.plugin.MyPlugin
-
-package com.example.plugin
-
-import io.github.revenge.plugins.plugin
-import io.github.revenge.xposed.api.registerMethod
-
-val myPlugin = plugin {
-    start {
-        log.i("Loaded ${manifest.id} in ${appInfo.packageName}")
-        registerMethod("${manifest.id}.ping") { "pong" }
-    }
-    stop {
-        log.i("Unloaded ${manifest.id}")
-    }
-}
-```
-
-A Kotlin top-level `val` compiles into a file-facade class. `MyPlugin.kt` becomes `MyPluginKt`.
-The `@file:JvmName("MyPlugin")` annotation renames that facade. `dist.android.class` can then use the clean name `com.example.plugin.MyPlugin`.
-
-If you omit the annotation, point `dist.android.class` at `...MyPluginKt`.
-Declare exactly one `plugin {}` val in the file that the manifest names.
-
-The host provides the Revenge API, the Xposed API, coroutines and the Kotlin standard library. The
-build marks them `compileOnly`. The host class loader supplies them at runtime, so the JAR must not
-contain them.
-
-> **Note:** `d8` can print a `malformed kotlin.Metadata` warning. This warning is not fatal.
-> The SDK metadata library is older than the Kotlin compiler. `d8` still writes a correct DEX, and the DEX loads.
-> Only the rewrite of Kotlin reflection metadata stops.
-
-## Distribution
-
-This template is also a **plugin repository**. A repository is a static host that serves `index.json`
-describing every published plugin channels, versions, absolute artifact URLs, and SHA-256 digests.
-
-A user can add the repository URL in Revenge. Browsing, dependency resolution and updates all run on the client.
-
-### Channels
-
-A **channel is a named pointer into the published versions of one plugin**. In `index.json` each plugin carries both maps:
-
-```jsonc
-"channels": { "latest": "1.2.0", "testing": "1.3.0-beta" },
-"versions": { "1.2.0": { /* … */ }, "1.3.0-beta": { /* … */ } }
-```
-
-`versions` holds the artifact data. `channels` only states which published version an audience gets.
-
-The client picks a channel at install time, and it follows that pointer for update checks.
-A stable user never sees a beta, because the `latest` pointer never points at one.
-
-**Automatic pointers**:
-
-- `latest` is the newest version with **no label**. `1.2.0` qualifies. `1.3.0-beta` never does.
-- `beta` is the newest version **overall**. The generator emits it only when it differs from `latest`.
-  When your newest release is stable, no `beta` pointer exists.
-
-**Manual overrides**: Use the `channels` key in `repo.config.json`, keyed by plugin ID:
-
-```jsonc
-{
-    "name": "My Plugin Repository",
-    "channels": {
-        "com.example.plugin": {
-            "latest": "1.1.4", // keep latest on 1.1.4, for example when 1.2.0 shipped broken
-            "lts": "1.0.9" // or add a channel of your own
-        }
-    }
-}
-```
-
-These rules apply:
-
-- The generator computes `latest` and `beta` first. It then applies your overrides.
-- An override must point at a published version of that plugin. Otherwise the generator fails.
-- A channel name carries no version semantics. An `lts` version is the same artifact as its plain version.
-  You only point at it for longer. To promote `beta` to `latest`, edit the pointer. No rebuilds or republishes.
-- **A dependency never references a channel.** A dependency constrains versions only, so a mixed-channel install can resolve.
-
-### Serve a repository on your machine
-
-You can test the full repository flow against your own builds: add the repository, browse it, install, and update.  
-Build the ZIPs first, then start the dev server. The server regenerates the index and serves it beside the artifacts:
-
-```sh
-./gradlew packageAllPlugins   # or one package task
-bun run serve                 # http://<your-lan-ip>:8080
-```
-
-Add the URL on the device as a repository. If the device cannot reach your IP, or if it blocks cleartext traffic, use loopback through ADB:
-
-```sh
-bun run serve -- --base-url http://127.0.0.1:8080
-adb reverse tcp:8080 tcp:8080
-```
-
-The server rescans the dist folder on every index request.
-Bump a manifest version, rebuild that plugin, and check for updates on the device. The new version will appear.
-
-## Discord Module ID Tracking
-
-Discord updates regularly shift internal Metro module IDs, which can break plugins relying on specific internal component IDs. To resolve this, this repository implements an automated module update system:
-
-- **`scripts/update-discord-module-ids.mjs`**: Fetches the latest module paths and IDs from `lvwmwm/decord` (`data` branch) and updates the shared module dictionary. If any IDs change, it automatically bumps the patch version of all plugins importing `@shared`.
-- **`plugins/shared/discord-modules.ts`**: The central store of Discord Metro module IDs, imported in plugins via the `@shared` alias.
-
-To sync with the latest Discord build:
-
-```sh
+```bash
 bun scripts/update-discord-module-ids.mjs
 ```
 
-## Credits & Acknowledgements
+---
 
-- **[Kmio (kmmiio99o)](https://github.com/kmmiio99o)** ([kmmiio99o.dev](https://kmmiio99o.dev)) — Huge thanks and full credits to **Kmio** for creating the Discord module ID tracking system and the `update-discord-module-ids.mjs` script from [`kmmiio-revenge-next-plugins`](https://github.com/kmmiio99o/revenge-next-plugins). This automated workflow keeps plugins functional across Discord updates by tracking decord data and automatically managing dependent plugin version bumps.
-- **[lvwmwm/decord](https://github.com/lvwmwm/decord)** — For maintaining the `data` branch with continuous Discord Android Metro module mapping.
-- **[Revenge Mod](https://github.com/revenge-mod)** — For the Revenge Next framework and tooling.
+## 💻 Development & Building
 
+### Prerequisites
+
+- **Bun** (v1.2+) or **Node.js** (v22+)
+- **JDK 21+** and **Android SDK** (Build-Tools & Platform 35/36)
+- Local clone of [`revenge-xposed`](https://github.com/revenge-mod/revenge-xposed) with `./gradlew :api:publishToMavenLocal` (only if building native Kotlin plugins).
+
+### Build Commands
+
+```bash
+# Install dependencies
+bun install
+
+# Build JavaScript bundles for all plugins
+bun run build
+
+# Build a single plugin's JS bundle
+bun node_modules/@revenge-mod/plugin-cli/src/main.ts build <plugin-name>
+
+# Build native Kotlin JARs and package all plugin ZIPs
+./gradlew packageAllPlugins
+
+# Package a specific plugin
+./gradlew packageYouBarPlus
+```
+
+### Local Development Server
+
+Test your builds directly on your physical Android device over LAN:
+
+```bash
+# Serve dist directory and auto-regenerate repository index
+bun node_modules/@revenge-mod/plugin-cli/src/main.ts serve --dist build/dist --port 8080 --host 0.0.0.0 --base-url http://<YOUR_LAN_IP>:8080/
+```
+
+Add `http://<YOUR_LAN_IP>:8080/` as a repository in Revenge on your device. Any rebuild will immediately be served to your phone.
+
+---
+
+## 📜 Credits & Acknowledgements
+
+- **[fshinz](https://github.com/fshinz)** — Original author of [BetterInbox](https://github.com/fshinz/Revenge-Plugins/tree/master/plugins/BetterInbox) for Classic Revenge.
+- **[Rosie](https://github.com/everestmcarthur)** — Creator and maintainer of the Revenge Next ports and Everest plugin suite.
+- **[Kmio (kmmiio99o)](https://github.com/kmmiio99o)** ([kmmiio99o.dev](https://kmmiio99o.dev)) — Creator of the Discord Metro module ID tracking workflow from [`kmmiio-revenge-next-plugins`](https://github.com/kmmiio99o/revenge-next-plugins).
+- **[lvwmwm/decord](https://github.com/lvwmwm/decord)** — Maintaining continuous Discord Android Metro module mapping.
+- **[Revenge Mod](https://github.com/revenge-mod)** — For the Revenge Next framework and modern mobile modding toolchain.
+
+---
+
+## 📄 License
+
+Licensed under the [MIT License](LICENSE).
