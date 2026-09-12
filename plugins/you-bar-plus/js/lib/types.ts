@@ -14,12 +14,16 @@ export interface YouBarPlusStorage {
 	compactAvatar: boolean
 	hideStatus: boolean
 	compactHeader: boolean
+	hideBuiltinDM?: boolean
 	moduleCache?: {
 		statusRowId?: number
 		profileContentId?: number
 		youBarButtonId?: number
 		userSettingsId?: number
 		transitionRouterId?: number
+		guildsBarMessagesId?: number
+		useGuildsBarPropsId?: number
+		guildsBarId?: number
 	}
 }
 
@@ -32,6 +36,7 @@ export const DEFAULT_STORAGE: YouBarPlusStorage = {
 	compactAvatar: false,
 	hideStatus: false,
 	compactHeader: false,
+	hideBuiltinDM: true,
 	moduleCache: {},
 }
 

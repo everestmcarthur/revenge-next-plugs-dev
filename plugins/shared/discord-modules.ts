@@ -18,10 +18,11 @@ export const discordModules = {
 	'modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx': 15156,
 	'modules/main_tabs_v2/native/you_bar/YouBarActivityStatusExperiment.tsx': 16438,
 	'modules/main_tabs_v2/native/you_bar/YouBar.tsx': 16434,
-	'modules/main_tabs_v2/native/tabs/you/utils/showYouAccountActionSheet.tsx': 16440,
-	'modules/main_tabs_v2/native/tabs/you/YouAccountActionSheet.tsx': 16442,
 	'modules/user_profile/native/showUserProfileActionSheet.tsx': 8264,
 	'modules/user_profile/native/YouScreenUserProfileContent.tsx': 16885,
 	'modules/main_tabs_v2/native/tabs/you/YouScreen.tsx': 16868,
+	'modules/guilds_bar/native/GuildsBarMessages.tsx': 16403,
+	'modules/guilds_bar/native/hooks/useGuildsBarProps.tsx': 16387,
+	'modules/guilds_bar/native/GuildsBar.tsx': 16378,
 	'asyncRequireImpl': 1896,
 } as const

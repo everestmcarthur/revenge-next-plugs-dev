@@ -190,6 +190,14 @@ export default function Settings({
 								}
 							/>
 							<TableSwitchRow
+								label="Hide Built-in DM Button"
+								subLabel="Hide Discord's top DM button in the server list when YouBar DM is enabled"
+								value={storage?.hideBuiltinDM !== false}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ hideBuiltinDM: v })
+								}
+							/>
+							<TableSwitchRow
 								label="Notifications Button"
 								subLabel="Show the standard Notifications button"
 								value={storage?.showNotificationsButton !== false}
