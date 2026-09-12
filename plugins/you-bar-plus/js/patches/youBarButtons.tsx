@@ -176,7 +176,7 @@ function handleDmButtonPress(storage?: JsonStorage<YouBarPlusStorage>) {
 		const isCurrentlyInDms = currentGuildId === '@me' || currentGuildId === null
 
 		const doubleTapEnabled = storage?.cache?.doubleTapReturn !== false
-		const isDoubleTap = doubleTapEnabled && now - lastDmTapTime < 2000
+		const isDoubleTap = doubleTapEnabled && now - lastDmTapTime < 500
 
 		if (isDoubleTap && isCurrentlyInDms) {
 			const target = lastSavedNonDmLocation || nonDm
@@ -187,7 +187,7 @@ function handleDmButtonPress(storage?: JsonStorage<YouBarPlusStorage>) {
 			}
 		}
 
-		lastDmTapTime = now
+		lastDmTapTime = isCurrentlyInDms ? now : 0
 
 		if (!isCurrentlyInDms && nonDm?.guildId) {
 			lastSavedNonDmLocation = nonDm
