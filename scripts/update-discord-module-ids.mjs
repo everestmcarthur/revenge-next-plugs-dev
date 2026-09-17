@@ -14,6 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PLUGINS_DIR = join(ROOT, 'plugins')
 const TARGET = join(PLUGINS_DIR, 'shared/discord-modules.ts')
 
+const TRACKER_URL = 'https://tracker.vendetta.rocks/tracker/index'
 const REPO = 'https://raw.githubusercontent.com/lvwmwm/decord/data'
 
 // Modules that are part of Metro/Discord's static runtime bootstrap rather than
@@ -23,6 +24,21 @@ const STABLE_RUNTIME_MODULES = new Set(['asyncRequireImpl'])
 
 const current = await import(pathToFileURL(TARGET).href)
 const tracked = Object.keys(current.discordModules)
+
+// 1. Cross-reference tracker.vendetta.rocks ALPHA build
+let trackerAlpha = null
+try {
+	const trackerRes = await fetch(TRACKER_URL, {
+		headers: { 'User-Agent': 'DiscordBot' },
+	})
+	if (trackerRes.ok) {
+		const trackerData = await trackerRes.json()
+		trackerAlpha = Number(trackerData?.latest?.alpha)
+		console.log(`[tracker.vendetta.rocks] Latest ALPHA build: ${trackerAlpha}`)
+	}
+} catch (e) {
+	console.warn(`[tracker.vendetta.rocks] Check failed (${e?.message}); proceeding with decord data`)
+}
 
 const [versionRes, pathsRes] = await Promise.all([
 	fetch(`${REPO}/version.txt`),
@@ -35,6 +51,14 @@ if (!versionRes.ok || !pathsRes.ok) {
 }
 
 const remoteBuild = Number((await versionRes.text()).trim())
+console.log(`[decord] Latest decompiled build: ${remoteBuild}`)
+
+if (trackerAlpha && remoteBuild < trackerAlpha) {
+	console.warn(
+		`[Notice] tracker.vendetta.rocks has newer ALPHA (${trackerAlpha}) than decord (${remoteBuild}). Using latest available decompiled mappings (${remoteBuild}).`,
+	)
+}
+
 const remotePaths = await pathsRes.json()
 
 async function deriveAsyncRequireId() {

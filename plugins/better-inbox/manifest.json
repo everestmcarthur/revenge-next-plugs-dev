@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.better-inbox",
+	"name": "BetterInbox",
+	"description": "Categorizes Discord notifications into clean tabs with filters for mentions, replies, reactions, and threads.",
+	"author": "fshinz, Rosie",
+	"icon": "BellIcon",
+	"version": "0.0.13",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
