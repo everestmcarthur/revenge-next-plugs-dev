@@ -1,5 +1,6 @@
 import patchYouBarButtons, { requestYouBarUpdate } from './patches/youBarButtons'
 import patchCompactYou from './patches/compactYou'
+import patchHideBuiltinDm, { requestGuildsBarUpdate } from './patches/hideBuiltinDm'
 import Settings from './ui/Settings'
 import { DEFAULT_STORAGE, type YouBarPlusStorage } from './lib/types'
 
@@ -31,6 +32,7 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 
 		void api.jsonStorage.get().then(() => {
 			requestYouBarUpdate()
+			requestGuildsBarUpdate()
 		})
 
 		let unpatchButtons = () => {}
@@ -47,9 +49,17 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 			api.logger.error(`[YouBar+] Failed to apply compacting patch: ${e}`)
 		}
 
+		let unpatchBuiltinDm = () => {}
+		try {
+			unpatchBuiltinDm = patchHideBuiltinDm(api.jsonStorage)
+		} catch (e) {
+			api.logger.error(`[YouBar+] Failed to apply hide builtin DM patch: ${e}`)
+		}
+
 		api.cleanup(() => {
 			unpatchButtons()
 			unpatchCompact()
+			unpatchBuiltinDm()
 		})
 	},
 

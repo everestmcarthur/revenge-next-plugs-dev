@@ -1,3 +1,4 @@
+import { discordModules } from '@shared'
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import { saveCachedModuleId, type YouBarPlusStorage } from '../lib/types'
 
@@ -16,7 +17,9 @@ let cachedUserSettingsRouter: any = null
 
 function isYouBarNotificationsButton(mod: any): boolean {
 	if (!mod) return false
+	if ((mod as any).__isYouBarNotificationsButton) return true
 	const comp = mod?.YouBarNotificationsButton ?? mod?.default ?? mod
+	if ((comp as any)?.__isYouBarNotificationsButton || (comp as any)?.type?.__isYouBarNotificationsButton) return true
 	const name =
 		comp?.name ||
 		comp?.displayName ||
@@ -127,6 +130,75 @@ function getUserSettingsRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 	return undefined
 }
 
+let lastDmTapTime = 0
+let lastSavedNonDmLocation: { guildId: string; channelId?: string } | null = null
+
+export function getCurrentNonDmLocation(): { guildId: string; channelId?: string } | null {
+	try {
+		const guildStore = revenge.modules.finders.lookupModule(
+			revenge.modules.finders.filters.withProps('getGuildId', 'getLastSelectedGuildId'),
+		)?.[0]
+		const channelStore =
+			revenge.everest?.getSelectedChannelStore?.() ||
+			revenge.modules.finders.lookupModule(
+				revenge.modules.finders.filters.withProps('getChannelId', 'getLastSelectedChannelId'),
+			)?.[0]
+
+		const currentGuildId = guildStore?.getGuildId()
+		if (currentGuildId && currentGuildId !== '@me') {
+			const channelId =
+				channelStore?.getChannelId?.(currentGuildId) ||
+				channelStore?.getMostRecentSelectedTextChannelId?.(currentGuildId)
+			return { guildId: currentGuildId, channelId }
+		}
+
+		const lastGuildId = guildStore?.getLastSelectedGuildId?.()
+		if (lastGuildId && lastGuildId !== '@me') {
+			const channelId =
+				channelStore?.getChannelId?.(lastGuildId) ||
+				channelStore?.getMostRecentSelectedTextChannelId?.(lastGuildId)
+			return { guildId: lastGuildId, channelId }
+		}
+	} catch {}
+	return null
+}
+
+function handleDmButtonPress(storage?: JsonStorage<YouBarPlusStorage>) {
+	try {
+		const now = Date.now()
+		const router = getTransitionRouter(storage)
+		const nonDm = getCurrentNonDmLocation()
+
+		const guildStore = revenge.modules.finders.lookupModule(
+			revenge.modules.finders.filters.withProps('getGuildId', 'getLastSelectedGuildId'),
+		)?.[0]
+		const currentGuildId = guildStore?.getGuildId()
+		const isCurrentlyInDms = currentGuildId === '@me' || currentGuildId === null
+
+		const doubleTapEnabled = storage?.cache?.doubleTapReturn !== false
+		const isDoubleTap = doubleTapEnabled && now - lastDmTapTime < 500
+
+		if (isDoubleTap && isCurrentlyInDms) {
+			const target = lastSavedNonDmLocation || nonDm
+			if (target?.guildId) {
+				router?.transitionToGuild?.(target.guildId, target.channelId)
+				lastDmTapTime = 0
+				return
+			}
+		}
+
+		lastDmTapTime = isCurrentlyInDms ? now : 0
+
+		if (!isCurrentlyInDms && nonDm?.guildId) {
+			lastSavedNonDmLocation = nonDm
+		}
+
+		router?.transitionToGuild?.('@me')
+	} catch (e) {
+		console.error('[YouBar+] DM button error:', e)
+	}
+}
+
 export default function patchYouBarButtons(
 	storage: JsonStorage<YouBarPlusStorage>,
 ): () => void {
@@ -149,13 +221,24 @@ export default function patchYouBarButtons(
 		if (patchedButtonTargets.has(component)) return
 		patchedButtonTargets.add(component)
 
+		try {
+			;(component as any).__isYouBarNotificationsButton = true
+			if (typeof targetModule === 'object' && targetModule !== null) {
+				;(targetModule as any).__isYouBarNotificationsButton = true
+			}
+		} catch {}
+
 		if (typeof id === 'number') {
 			saveCachedModuleId(storage, 'youBarButtonId', id)
 		}
 
+		const isMemo = typeof component.type === 'function'
+		const target = isMemo ? component : (typeof targetModule?.default === 'function' ? targetModule : component)
+		const prop = isMemo ? 'type' : (typeof targetModule?.default === 'function' ? 'default' : 'type')
+
 		const unpatch = revenge.patcher.instead(
-			component,
-			'type',
+			target,
+			prop,
 			(args: any[], OriginalRender: any) => {
 				const [, forceUpdate] = React.useReducer(
 					(x: number) => x + 1,
@@ -174,19 +257,33 @@ export default function patchYouBarButtons(
 				const res = OriginalRender(...args)
 				if (!res) return res
 
+				const rawCache = storage.cache ?? {}
+				const allExplicitlyDisabled =
+					rawCache.showDMButton === false &&
+					rawCache.showSettingsButton === false &&
+					rawCache.showNotificationsButton === false
+
 				const currentStorage: YouBarPlusStorage = {
-					showDMButton: true,
-					showSettingsButton: true,
-					showNotificationsButton: true,
-					order: ['dms', 'notifications', 'settings'],
-					...(storage.cache ?? {}),
+					showDMButton: allExplicitlyDisabled ? true : (rawCache.showDMButton ?? true),
+					showSettingsButton: allExplicitlyDisabled ? true : (rawCache.showSettingsButton ?? true),
+					showNotificationsButton: allExplicitlyDisabled ? true : (rawCache.showNotificationsButton ?? true),
+					order: Array.isArray(rawCache.order) && rawCache.order.length === 3 ? rawCache.order : ['dms', 'notifications', 'settings'],
+					...rawCache,
+					...(allExplicitlyDisabled
+						? {
+								showDMButton: true,
+								showSettingsButton: true,
+								showNotificationsButton: true,
+						  }
+						: {}),
 				}
 
 				const targetElement = res.props?.children ?? res
+				const DesignIconButton = revenge.discord?.design?.Design?.IconButton
 				const IconButton =
 					(typeof targetElement?.type === 'function' || typeof targetElement?.type === 'object')
 						? targetElement.type
-						: (revenge.discord?.design?.Design?.IconButton ?? targetElement?.type)
+						: DesignIconButton
 				const originalProps = targetElement?.props ?? res?.props ?? {}
 
 				let SettingsIcon: any
@@ -211,12 +308,7 @@ export default function patchYouBarButtons(
 								icon: ChatIcon,
 								accessibilityLabel: 'Direct Messages',
 								onPress: () => {
-									try {
-										const router = getTransitionRouter(storage)
-										router?.transitionToGuild?.('@me')
-									} catch (e) {
-										console.error('[YouBar+] DM button error:', e)
-									}
+									handleDmButtonPress(storage)
 								},
 						  })
 						: null
@@ -259,7 +351,7 @@ export default function patchYouBarButtons(
 					.map((id) => buttonMap[id])
 					.filter(Boolean)
 
-				if (renderedButtons.length === 0) return null
+				if (renderedButtons.length === 0) return res
 
 				const RN = revenge.react.ReactNative
 
@@ -287,8 +379,12 @@ export default function patchYouBarButtons(
 		if (typeof (globalThis as any).__r !== 'function') return
 		const req = (globalThis as any).__r
 		const cachedId = cache?.youBarButtonId ?? storage.cache?.moduleCache?.youBarButtonId
+		const notifId = discordModules['modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx']
 		const candidates = new Set<number>([
 			...(typeof cachedId === 'number' ? [cachedId] : []),
+			...(typeof notifId === 'number' ? [notifId] : []),
+			16488,
+			16464,
 			16476,
 			16427,
 		])
@@ -302,7 +398,8 @@ export default function patchYouBarButtons(
 		}
 
 		if (patchedButtonTargets.size === 0) {
-			for (let id = 16400; id <= 16550; id++) {
+			const base = typeof notifId === 'number' ? notifId : 16464
+			for (let id = base - 50; id <= base + 100; id++) {
 				try {
 					const mod = req(id)
 					if (isYouBarNotificationsButton(mod)) {

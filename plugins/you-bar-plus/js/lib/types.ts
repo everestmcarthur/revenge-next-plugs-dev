@@ -5,16 +5,25 @@ export interface YouBarPlusStorage {
 	showDMButton: boolean
 	showSettingsButton: boolean
 	showNotificationsButton: boolean
+	doubleTapReturn?: boolean
+	lastLocation?: {
+		guildId: string
+		channelId?: string
+	}
 	order: [YouBarButtonId, YouBarButtonId, YouBarButtonId]
 	compactAvatar: boolean
 	hideStatus: boolean
 	compactHeader: boolean
+	hideBuiltinDM?: boolean
 	moduleCache?: {
 		statusRowId?: number
 		profileContentId?: number
 		youBarButtonId?: number
 		userSettingsId?: number
 		transitionRouterId?: number
+		guildsBarMessagesId?: number
+		useGuildsBarPropsId?: number
+		guildsBarId?: number
 	}
 }
 
@@ -22,10 +31,12 @@ export const DEFAULT_STORAGE: YouBarPlusStorage = {
 	showDMButton: true,
 	showSettingsButton: true,
 	showNotificationsButton: true,
+	doubleTapReturn: true,
 	order: ['dms', 'notifications', 'settings'],
 	compactAvatar: false,
 	hideStatus: false,
 	compactHeader: false,
+	hideBuiltinDM: true,
 	moduleCache: {},
 }
 

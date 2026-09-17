@@ -182,6 +182,22 @@ export default function Settings({
 								}
 							/>
 							<TableSwitchRow
+								label="Double Tap DM to Return"
+								subLabel="Double tap while in DMs to return to your previous server/channel"
+								value={storage?.doubleTapReturn !== false}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ doubleTapReturn: v })
+								}
+							/>
+							<TableSwitchRow
+								label="Hide Built-in DM Button"
+								subLabel="Hide Discord's top DM button in the server list when YouBar DM is enabled"
+								value={storage?.hideBuiltinDM !== false}
+								onValueChange={(v: boolean) =>
+									api.jsonStorage.set({ hideBuiltinDM: v })
+								}
+							/>
+							<TableSwitchRow
 								label="Notifications Button"
 								subLabel="Show the standard Notifications button"
 								value={storage?.showNotificationsButton !== false}
