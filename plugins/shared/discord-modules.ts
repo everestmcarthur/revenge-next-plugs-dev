@@ -4,25 +4,25 @@
 // latest build. Module paths are stable across builds; you can add/remove entries
 // here and the script only updates the IDs.
 
-export const discordBuild = 347203
+export const discordBuild = 347204
 
 export const discordModules = {
-	'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx': 16553,
-	'modules/main_tabs_v2/native/you_bar/YouBarBackground.tsx': 16543,
-	'modules/main_tabs_v2/native/you_bar/YouBarNameplate.tsx': 16544,
-	'modules/main_tabs_v2/native/you_bar/YouBarAvatarDefault.tsx': 16546,
-	'modules/main_tabs_v2/native/you_bar/YouBarAvatar.tsx': 16547,
-	'modules/main_tabs_v2/native/you_bar/YouBarName.tsx': 16548,
-	'modules/main_tabs_v2/native/you_bar/YouBarUser.tsx': 16545,
-	'modules/main_tabs_v2/native/you_bar/YouBarButton.tsx': 16552,
-	'modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx': 15210,
-	'modules/main_tabs_v2/native/you_bar/YouBarActivityStatusExperiment.tsx': 16527,
-	'modules/main_tabs_v2/native/you_bar/YouBar.tsx': 16523,
-	'modules/user_profile/native/showUserProfileActionSheet.tsx': 8327,
-	'modules/user_profile/native/YouScreenUserProfileContent.tsx': 17048,
-	'modules/main_tabs_v2/native/tabs/you/YouScreen.tsx': 17031,
-	'modules/guilds_bar/native/GuildsBarMessages.tsx': 16468,
-	'modules/guilds_bar/native/hooks/useGuildsBarProps.tsx': 16452,
-	'modules/guilds_bar/native/GuildsBar.tsx': 16443,
+	'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx': 16650,
+	'modules/main_tabs_v2/native/you_bar/YouBarBackground.tsx': 16640,
+	'modules/main_tabs_v2/native/you_bar/YouBarNameplate.tsx': 16641,
+	'modules/main_tabs_v2/native/you_bar/YouBarAvatarDefault.tsx': 16643,
+	'modules/main_tabs_v2/native/you_bar/YouBarAvatar.tsx': 16644,
+	'modules/main_tabs_v2/native/you_bar/YouBarName.tsx': 16645,
+	'modules/main_tabs_v2/native/you_bar/YouBarUser.tsx': 16642,
+	'modules/main_tabs_v2/native/you_bar/YouBarButton.tsx': 16649,
+	'modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx': 15304,
+	'modules/main_tabs_v2/native/you_bar/YouBarActivityStatusExperiment.tsx': 16624,
+	'modules/main_tabs_v2/native/you_bar/YouBar.tsx': 16620,
+	'modules/user_profile/native/showUserProfileActionSheet.tsx': 8409,
+	'modules/user_profile/native/YouScreenUserProfileContent.tsx': 17179,
+	'modules/main_tabs_v2/native/tabs/you/YouScreen.tsx': 17162,
+	'modules/guilds_bar/native/GuildsBarMessages.tsx': 16565,
+	'modules/guilds_bar/native/hooks/useGuildsBarProps.tsx': 16549,
+	'modules/guilds_bar/native/GuildsBar.tsx': 16540,
 	'asyncRequireImpl': 1897,
 } as const
