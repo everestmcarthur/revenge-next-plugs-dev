@@ -13,3 +13,9 @@ node_modules/
 .idea/
 *.iml
 .superpowers/
+*.png
+/sakura_theme.json
+/manifest.json
+/index.js
+/index.json
+/scripts/pack-client-utils.mjs
