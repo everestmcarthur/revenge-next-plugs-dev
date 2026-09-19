@@ -1695,11 +1695,6 @@ export default plugin({
 						return
 					}
 
-					ctx.reply({
-						ephemeral: isEphemeral,
-						content: '⏳ Checking for plugin updates...',
-					})
-
 					await repos.refreshAllRepos()
 					const updatesResult = await repos.listAllUpdates()
 					const updates = Array.isArray(updatesResult)
@@ -1724,11 +1719,19 @@ export default plugin({
 						await repos.updateAllPlugins()
 					}
 
+					const pList = (globalThis as any).revenge?.hidden?.plugins?.internal?.pList
 					const updatedNames = updates
-						.map(
-							(u: any) =>
-								`• **${u.name || u.manifest?.name || u.id || 'Plugin'}** (${u.version || u.manifest?.version || 'Update'})`,
-						)
+						.map((u: any) => {
+							const id = u.id || u.manifest?.id || u.name
+							const pluginObj = pList?.get ? pList.get(id) : null
+							const name = pluginObj?.manifest?.name || u.name || id || 'Plugin'
+							const avail = Array.isArray(u.available)
+								? u.available.join('.')
+								: u.available?.nums
+									? u.available.nums.join('.')
+									: u.available || u.version || 'Latest'
+							return `• **${name}** (v${avail})`
+						})
 						.join('\n')
 
 					ctx.reply({
