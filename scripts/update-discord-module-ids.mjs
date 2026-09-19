@@ -40,10 +40,16 @@ try {
 	console.warn(`[tracker.vendetta.rocks] Check failed (${e?.message}); proceeding with decord data`)
 }
 
-const [versionRes, pathsRes] = await Promise.all([
-	fetch(`${REPO}/version.txt`),
-	fetch(`${REPO}/module-paths.json`),
+let [versionRes, pathsRes] = await Promise.all([
+	fetch(`${REPO}/alpha/version.txt`),
+	fetch(`${REPO}/alpha/module-paths.json`),
 ])
+if (!versionRes.ok || !pathsRes.ok) {
+	;[versionRes, pathsRes] = await Promise.all([
+		fetch(`${REPO}/version.txt`),
+		fetch(`${REPO}/module-paths.json`),
+	])
+}
 if (!versionRes.ok || !pathsRes.ok) {
 	throw new Error(
 		`decord fetch failed (${versionRes.status} / ${pathsRes.status})`,
