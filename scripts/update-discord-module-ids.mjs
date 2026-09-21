@@ -15,7 +15,7 @@ const PLUGINS_DIR = join(ROOT, 'plugins')
 const TARGET = join(PLUGINS_DIR, 'shared/discord-modules.ts')
 
 const TRACKER_URL = 'https://tracker.vendetta.rocks/tracker/index'
-const REPO = 'https://raw.githubusercontent.com/lvwmwm/decord/data'
+const REPO = 'https://raw.githubusercontent.com/everestmcarthur/decord/data'
 
 // Modules that are part of Metro/Discord's static runtime bootstrap rather than
 // normal path-mapped modules. Not present in module-paths.json; sourced from the
