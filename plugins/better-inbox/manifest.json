@@ -5,7 +5,7 @@
 	"description": "Categorizes Discord notifications into clean tabs with filters for mentions, replies, reactions, and threads.",
 	"author": "fshinz, Rosie",
 	"icon": "BellIcon",
-	"version": "0.0.15",
+	"version": "0.0.16",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
