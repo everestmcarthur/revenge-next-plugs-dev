@@ -5,7 +5,7 @@
 	"description": "Customize your YouBar bottom navigation bar with Direct Messages and Settings shortcuts.",
 	"author": "Rosie",
 	"icon": "ChannelsIcon",
-	"version": "1.2.17",
+	"version": "1.2.18",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
