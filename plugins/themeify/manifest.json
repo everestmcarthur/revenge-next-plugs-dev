@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.everest.themeify",
+	"name": "Themeify",
+	"description": "Redesign theme manager for modern Discord Android with custom colors, pure modern tokens, and fonts.",
+	"author": "Rosie",
+	"icon": "PaintPaletteIcon",
+	"version": "1.1.0",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
