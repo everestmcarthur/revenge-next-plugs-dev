@@ -5,7 +5,7 @@
 	"description": "A collection of chat, profile, visual, and media utilities with customizable toggles.",
 	"author": "Rosie",
 	"icon": "SparklesIcon",
-	"version": "1.0.21",
+	"version": "1.0.22",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

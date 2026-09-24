@@ -5,7 +5,7 @@
 	"description": "Custom client-side slash command engine and built-in Discord utilities.",
 	"author": "Rosie",
 	"icon": "HammerIcon",
-	"version": "1.0.21",
+	"version": "1.0.22",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

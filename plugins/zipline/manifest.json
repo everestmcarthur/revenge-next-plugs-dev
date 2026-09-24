@@ -5,7 +5,7 @@
 	"description": "Uploads attachments and shortens links through a self-hosted Zipline instance instead of sending them natively.",
 	"author": "Rosie",
 	"icon": "ic_upload",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

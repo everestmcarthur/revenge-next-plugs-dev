@@ -1,10 +1,12 @@
-// Shared Discord module ID store for plugins.
-// Features smart dynamic resolution: queries Discord's live imported path registry
-// at runtime, completely avoiding breakage when Metro module IDs shift across builds.
+// Shared Discord module ID store for plugins. Module IDs shift between Discord
+// builds; they're refreshed here by scripts/update-discord-module-ids.mjs from
+// lvwmwm/decord's data branch (https://github.com/lvwmwm/decord/tree/data) on the
+// latest build. Module paths are stable across builds; you can add/remove entries
+// here and the script only updates the IDs.
 
 export const discordBuild = 348203
 
-export const rawDiscordModules = {
+export const discordModules = {
 	'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx': 16820,
 	'modules/main_tabs_v2/native/you_bar/YouBarBackground.tsx': 16810,
 	'modules/main_tabs_v2/native/you_bar/YouBarNameplate.tsx': 16811,
@@ -57,63 +59,10 @@ export const rawDiscordModules = {
 	'actions/MessageActionCreators.tsx': 7786,
 	'modules/gateway/GatewayConnectionStore.tsx': 5582,
 	'modules/markup_v2/native/transformNativeMarkupMention.tsx': 8460,
-	'actions/ModalActionCreators.tsx': 4959,
+	'actions/ModalActionCreators.tsx': 5032,
 	'design/components/Navigator/native/Navigator.native.tsx': 7333,
-	'design/components/Navigator/native/NavigatorHeader.native.tsx': 5914,
-	'modules/messages/native/long_press/LongPressMessageActionSheet.tsx': 11986,
-	'modules/messages/native/long_press/showLongPressMessageActionSheet.tsx': 11985,
+	'design/components/Navigator/native/NavigatorHeader.native.tsx': 5929,
+	'modules/messages/native/long_press/LongPressMessageActionSheet.tsx': 11996,
+	'modules/messages/native/long_press/showLongPressMessageActionSheet.tsx': 11995,
 	'asyncRequireImpl': 1980,
 } as const
-
-export type DiscordModulePath = keyof typeof rawDiscordModules
-
-/**
- * Smart Proxy over Discord module IDs.
- * Intercepts property lookups and queries Discord's live imported path registry
- * (`revenge.discord.utils.finders.lookupModuleWithImportedPath`), guaranteeing that
- * plugins always receive the live runtime numeric ID on whatever Discord build is running.
- */
-export const discordModules = new Proxy(rawDiscordModules as Record<string, number>, {
-	get(target, prop: string | symbol) {
-		if (typeof prop !== 'string') return (target as any)[prop]
-		try {
-			const finders =
-				(revenge?.discord?.utils as any)?.modules?.finders ??
-				(revenge?.discord?.utils as any)?.finders
-			if (typeof finders?.lookupModuleWithImportedPath === 'function') {
-				const res = finders.lookupModuleWithImportedPath(prop)
-				if (res && res[1] !== undefined) {
-					return res[1]
-				}
-			}
-		} catch {}
-		return target[prop]
-	},
-})
-
-/**
- * Resolves module exports dynamically by imported path, with fallback to Metro ID lookup.
- */
-export function getDiscordModuleExports<T = any>(path: string): T | null {
-	try {
-		const finders =
-			(revenge?.discord?.utils as any)?.modules?.finders ??
-			(revenge?.discord?.utils as any)?.finders
-		if (typeof finders?.lookupModuleWithImportedPath === 'function') {
-			const res = finders.lookupModuleWithImportedPath(path)
-			if (res && res[0]) {
-				return (res[0]?.default ?? res[0]) as T
-			}
-		}
-	} catch {}
-
-	try {
-		const id = (discordModules as any)[path]
-		if (id !== undefined) {
-			const raw = (globalThis as any).__r?.(id)
-			return (raw?.default ?? raw) as T
-		}
-	} catch {}
-
-	return null
-}
