@@ -1,4 +1,5 @@
 import { discordModules } from '../../shared/discord-modules'
+import * as builders from './builders'
 
 const getFinders = () => {
 	try {
@@ -28,53 +29,55 @@ const getSnowflakeDate = (id: string | bigint) => {
 }
 
 const isEphemeralArg = (val: any) => {
-	if (val === undefined || val === null || val === '') return true
+	if (val === undefined || val === null || val === '') return false
 	if (typeof val === 'string') {
 		const s = val.toLowerCase().trim()
-		if (s === 'no' || s === 'false' || s === '0' || s === 'n') return false
-		return true
+		return s === 'true' || s === 'yes' || s === '1'
 	}
 	if (typeof val === 'boolean') return val
-	return true
+	return false
 }
 
 function parseOptionValues(rawOptions: any) {
 	const args: Record<string, any> = {}
-	if (!rawOptions || typeof rawOptions !== 'object') return args
+	if (!rawOptions) return args
 
-	for (const [key, val] of Object.entries(rawOptions)) {
-		if (val === null || val === undefined) {
-			args[key] = undefined
-		} else if (Array.isArray(val)) {
-			const first: any = val[0]
-			if (first && typeof first === 'object') {
-				args[key] =
-					first.value !== undefined
-						? first.value
-						: first.text !== undefined
-							? first.text
-							: first.id !== undefined
-								? first.id
-								: first.userId !== undefined
-									? first.userId
-									: first
-			} else {
-				args[key] = first
+	const extractVal = (item: any): any => {
+		if (item === null || item === undefined) return undefined
+		if (typeof item !== 'object') return item
+		if (item.value !== undefined) return item.value
+		if (item.text !== undefined) return item.text
+		if (item.id !== undefined) return item.id
+		if (item.userId !== undefined) return item.userId
+		return item
+	}
+
+	if (Array.isArray(rawOptions)) {
+		for (const opt of rawOptions) {
+			if (!opt) continue
+			const optName = opt.name || opt.displayName
+			if (optName) {
+				args[optName] = extractVal(opt)
 			}
-		} else if (typeof val === 'object') {
-			const obj: any = val
-			args[key] =
-				obj.value !== undefined
-					? obj.value
-					: obj.text !== undefined
-						? obj.text
-						: obj.id !== undefined
-							? obj.id
-							: obj.userId !== undefined
-								? obj.userId
-								: obj
-		} else {
-			args[key] = val
+		}
+	} else if (typeof rawOptions === 'object') {
+		for (const [key, val] of Object.entries(rawOptions)) {
+			if (Array.isArray(val)) {
+				const first: any = val[0]
+				const optName = first?.name || key
+				args[optName] = extractVal(first)
+				if (optName !== key) {
+					args[key] = args[optName]
+				}
+			} else if (typeof val === 'object' && val !== null) {
+				const optName = (val as any).name || key
+				args[optName] = extractVal(val)
+				if (optName !== key) {
+					args[key] = args[optName]
+				}
+			} else {
+				args[key] = val
+			}
 		}
 	}
 	return args
@@ -194,36 +197,210 @@ export default plugin({
 			return `https://cdn.discordapp.com/banners/${user.id}/${banner}.${ext}?size=1024`
 		}
 
-		const sendReply = (channelId: string, options: any, defaultAuthorName = 'Client Utils') => {
+		const getInitialsAvatar = (name: string) => {
+			const parts = (name || '').trim().split(/\s+/)
+			const initials = (parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2) || 'CU').toUpperCase()
+			return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=5865F2&color=fff&rounded=true`
+		}
+
+		const formatReplyData = (opts: any, defaultFormat = 'embed') => {
+			const chosenFormat = opts.format || defaultFormat
+
+			if (chosenFormat === 'text') {
+				let text = opts.content || ''
+				const embed = opts.embed || (opts.embeds && opts.embeds[0])
+				if (embed) {
+					const parts: string[] = []
+					if (embed.author?.name) parts.push(`### ${embed.author.name}`)
+					if (embed.title) parts.push(`## ${embed.title}`)
+					if (embed.description) parts.push(embed.description)
+					if (embed.fields && Array.isArray(embed.fields)) {
+						for (const f of embed.fields) {
+							parts.push(`**${f.name}**\n${f.value}`)
+						}
+					}
+					if (embed.footer?.text) parts.push(`-# ${embed.footer.text}`)
+					if (embed.image?.url) parts.push(embed.image.url)
+					const embedText = parts.join('\n\n')
+					text = text ? `${text}\n\n${embedText}` : embedText
+				}
+				if (opts.imageUrl && !text.includes(opts.imageUrl)) {
+					text = text ? `${text}\n${opts.imageUrl}` : opts.imageUrl
+				}
+				return {
+					content: text,
+					embeds: [],
+					components: opts.components || [],
+				}
+			} else if (chosenFormat === 'cv2') {
+				const components: any[] = []
+				const embed = opts.embed || (opts.embeds && opts.embeds[0])
+				let mainText = opts.content || ''
+				if (embed?.title || embed?.description) {
+					const header = embed.title ? `## ${embed.title}\n` : ''
+					const desc = embed.description || ''
+					mainText = mainText ? `${mainText}\n\n${header}${desc}` : `${header}${desc}`
+				}
+				if (mainText) {
+					const section: any = {
+						type: 9,
+						components: [
+							{
+								type: 10,
+								content: mainText,
+							},
+						],
+					}
+					if (embed?.thumbnail?.url) {
+						section.accessory = {
+							type: 11,
+							media: {
+								url: embed.thumbnail.url,
+								proxy_url: embed.thumbnail.url,
+							},
+						}
+					}
+					components.push(section)
+				}
+				if (embed?.fields && Array.isArray(embed.fields)) {
+					for (const f of embed.fields) {
+						components.push({
+							type: 9,
+							components: [
+								{
+									type: 10,
+									content: `**${f.name}**\n${f.value}`,
+								},
+							],
+						})
+					}
+				}
+				if (embed?.image?.url) {
+					components.push({
+						type: 12,
+						items: [
+							{
+								media: {
+									url: embed.image.url,
+									proxy_url: embed.image.url,
+								},
+							},
+						],
+					})
+				}
+				if (embed?.footer?.text) {
+					components.push({
+						type: 14,
+						divider: true,
+						spacing: 1,
+					})
+					components.push({
+						type: 9,
+						components: [
+							{
+								type: 10,
+								content: `-# ${embed.footer.text}`,
+							},
+						],
+					})
+				}
+				if (opts.components && Array.isArray(opts.components)) {
+					components.push(...opts.components)
+				}
+				const container: any = {
+					type: 17,
+					components,
+				}
+				if (embed?.color) {
+					container.accent_color = embed.color
+				}
+				return {
+					content: '',
+					embeds: [],
+					components: [container],
+				}
+			} else {
+				let embeds = opts.embeds ? [...opts.embeds] : opts.embed ? [opts.embed] : []
+				let content = opts.content || ''
+				if (embeds.length === 0 && !opts.imageUrl && content && (!opts.components || opts.components.length === 0)) {
+					embeds = [
+						{
+							type: 'rich',
+							description: content,
+							color: 0x5865f2,
+						},
+					]
+					content = ''
+				}
+				return {
+					content,
+					embeds,
+					components: opts.components || [],
+				}
+			}
+		}
+
+		const sendReply = (channelId: string, options: any, defaultAuthorName = 'Client Utils', cmdName?: string, pluginMeta?: any) => {
 			try {
 				const opts = typeof options === 'string' ? { content: options } : options
-				const isEphemeral = opts.ephemeral !== false
+				const rawEph = opts.ephemeral
+				const isEphemeral =
+					rawEph === true || rawEph === 'true' || rawEph === 'True' || rawEph === 'yes' || rawEph === 1
 				const msgActions = getMessageActions()
+				const targetChannelId = channelId || getSelectedChannelIdSafe()
+				const formatted = formatReplyData(opts)
 
 				if (isEphemeral) {
 					const snowflake = (BigInt(Date.now() - 1420070400000) << 22n).toString()
 					const botMsgMod = getBotMessageMod()
 					const botMsgFn = botMsgMod?.createBotMessage || botMsgMod?.default?.createBotMessage
-					const base = botMsgFn
-						? botMsgFn({ channelId, content: opts.content || '', loggingName: 'client-utils' })
+					const base = botMsgFn && targetChannelId
+						? botMsgFn({ channelId: targetChannelId, content: formatted.content || '', loggingName: 'client-utils' })
 						: null
 
-					const authorName = opts.author?.username || opts.authorName || defaultAuthorName
+					const currentUser = getCurrentUserSafe()
+					const userDisplayName =
+						currentUser?.globalName || currentUser?.global_name || currentUser?.username || 'You'
+
+					const authorName =
+						opts.name ||
+						opts.username ||
+						opts.authorName ||
+						opts.author?.username ||
+						userDisplayName
+					const customAvatar =
+						opts.icon ||
+						opts.picture ||
+						opts.avatar ||
+						opts.image ||
+						opts.authorAvatar ||
+						opts.author?.avatar
+					const authorAvatar = customAvatar || currentUser?.avatar || null
+					const authorAvatarUrl =
+						typeof authorAvatar === 'string' && authorAvatar.startsWith('http')
+							? authorAvatar
+							: getAvatarUrl(currentUser)
+
 					const msg = base || {
 						id: snowflake,
 						type: 0,
 						flags: 64,
-						content: opts.content || '',
-						channel_id: channelId,
+						content: formatted.content || '',
+						channel_id: targetChannelId,
 						author: {
-							id: '1',
+							id: currentUser?.id || '0',
 							username: authorName,
-							discriminator: '0000',
-							avatar: 'clyde',
-							bot: true,
+							discriminator: currentUser?.discriminator || '0000',
+							avatar: authorAvatar,
+							avatarURL: authorAvatarUrl,
+							avatarDecorationData: currentUser?.avatarDecorationData || null,
+							globalName: currentUser?.globalName || currentUser?.global_name || authorName,
+							global_name: currentUser?.global_name || currentUser?.globalName || authorName,
+							bot: false,
 						},
-						attachments: [],
-						embeds: [],
+						attachments: opts.attachments || [],
+						embeds: formatted.embeds || [],
+						components: formatted.components || [],
 						pinned: false,
 						mentions: [],
 						mention_channels: [],
@@ -235,40 +412,102 @@ export default plugin({
 						loggingName: 'client-utils',
 					}
 
-					if (opts.content) {
-						msg.content = opts.content
+					if (msg.author) {
+						msg.author.id = currentUser?.id || msg.author.id
+						msg.author.username = authorName
+						msg.author.discriminator = currentUser?.discriminator || msg.author.discriminator || '0000'
+						msg.author.avatar = authorAvatar
+						msg.author.avatarURL = authorAvatarUrl
+						msg.author.avatarDecorationData = currentUser?.avatarDecorationData || null
+						msg.author.globalName = currentUser?.globalName || currentUser?.global_name || authorName
+						msg.author.global_name = currentUser?.global_name || currentUser?.globalName || authorName
+						msg.author.bot = false
+					}
+
+					if (cmdName) {
+						msg.interaction = {
+							id: snowflake,
+							type: 2,
+							name: cmdName,
+							user: {
+								id: currentUser?.id || '0',
+								username: currentUser?.username || 'You',
+								discriminator: currentUser?.discriminator || '0000',
+								avatar: currentUser?.avatar || null,
+								global_name: currentUser?.globalName || currentUser?.global_name || currentUser?.username || 'You',
+							},
+						}
+					}
+
+					msg.content = formatted.content || ''
+					if (formatted.embeds && formatted.embeds.length > 0) {
+						msg.embeds = formatted.embeds
+					}
+					if (formatted.components && formatted.components.length > 0) {
+						msg.components = formatted.components
 					}
 					if (opts.attachments) {
 						msg.attachments = opts.attachments
 					}
-					if (opts.embeds) {
-						msg.embeds = opts.embeds
-					} else if (opts.embed) {
-						msg.embeds = [opts.embed]
-					}
-					if (msg.author && authorName) {
-						msg.author.username = authorName
-					}
 
 					if (msgActions?.receiveMessage) {
-						msgActions.receiveMessage(channelId, msg)
+						msgActions.receiveMessage(targetChannelId, msg)
 					} else {
 						const dispatcher = getDispatcher()
-						dispatcher?.dispatch?.({ type: 'MESSAGE_CREATE', channelId, message: msg, optimistic: false })
+						dispatcher?.dispatch?.({ type: 'MESSAGE_CREATE', channelId: targetChannelId, message: msg, optimistic: false })
 					}
 				} else {
-					let text = opts.content || ''
-					if (opts.imageUrl) {
+					let text = formatted.content || ''
+					if (opts.imageUrl && !text.includes(opts.imageUrl)) {
 						text = text ? `${text}\n${opts.imageUrl}` : opts.imageUrl
-					} else if (opts.embed?.image?.url) {
+					} else if (opts.embed?.image?.url && !text.includes(opts.embed.image.url)) {
 						text = text ? `${text}\n${opts.embed.image.url}` : opts.embed.image.url
-					} else if (opts.embed?.title && !text) {
-						text = `**${opts.embed.title}**\n${opts.embed.description || ''}`
-						if (opts.embed.fields) {
-							text += `\n${opts.embed.fields.map((f: any) => `**${f.name}**: ${f.value}`).join('\n')}`
+					}
+
+					if (!text && (!formatted.embeds || formatted.embeds.length === 0) && (!formatted.components || formatted.components.length === 0)) return
+					if (!targetChannelId) return
+
+					const nonce = (BigInt(Date.now() - 1420070400000) << 22n).toString()
+
+					const hasCustomPayload = (formatted.components && formatted.components.length > 0) || (formatted.embeds && formatted.embeds.length > 0)
+					const RestAPI = getMod(filters?.withProps('get', 'post', 'del'))
+					if (hasCustomPayload && RestAPI?.post) {
+						RestAPI.post({
+							url: `/channels/${targetChannelId}/messages`,
+							body: {
+								content: text,
+								tts: false,
+								nonce,
+								flags: 0,
+								embeds: formatted.embeds || [],
+								components: formatted.components || [],
+							},
+						}).catch(() => {
+							const msgPayload = {
+								content: text || (formatted.embeds?.[0]?.description ?? ''),
+								tts: false,
+								invalidEmojis: [],
+								validNonShortcutEmojis: [],
+							}
+							if (typeof msgActions?._sendMessage === 'function') {
+								msgActions._sendMessage(targetChannelId, msgPayload, { nonce })
+							} else if (typeof msgActions?.sendMessage === 'function') {
+								msgActions.sendMessage(targetChannelId, msgPayload, null, { nonce })
+							}
+						})
+					} else {
+						const msgPayload = {
+							content: text,
+							tts: false,
+							invalidEmojis: [],
+							validNonShortcutEmojis: [],
+						}
+						if (typeof msgActions?._sendMessage === 'function') {
+							msgActions._sendMessage(targetChannelId, msgPayload, { nonce })
+						} else if (typeof msgActions?.sendMessage === 'function') {
+							msgActions.sendMessage(targetChannelId, msgPayload, null, { nonce })
 						}
 					}
-					msgActions?.sendMessage?.(channelId, { content: text })
 				}
 			} catch (err) {
 				logger.error(`[ClientUtils] sendReply error: ${err}`)
@@ -290,19 +529,30 @@ export default plugin({
 		const commands = new Map<string, any>()
 
 		const registerCommand = (cmd: any, pluginMeta?: any) => {
-			const meta = pluginMeta || cmd.plugin || cmd.section || {
+			const meta = pluginMeta || cmd.plugin || cmd.category || cmd.section || cmd.application || {
 				id: 'dev.everestmcarthur.client-utils',
 				name: 'Client Utils',
 				description: 'Custom client-side slash command utilities',
 			}
-			cmd._pluginMeta = typeof meta === 'string'
-				? { id: meta, name: meta }
-				: {
-					id: meta.id || meta.name || 'dev.everestmcarthur.client-utils',
-					name: meta.name || meta.id || 'Client Utils',
-					description: meta.description || 'Custom client-side slash commands',
-					icon: meta.icon,
-				}
+			const rawIcon =
+				meta.icon ||
+				meta.avatar ||
+				meta.picture ||
+				meta.image ||
+				cmd.icon ||
+				cmd.avatar ||
+				cmd.picture ||
+				cmd.image
+			const parsedMeta =
+				typeof meta === 'string'
+					? { id: meta, name: meta, icon: rawIcon }
+					: {
+							id: meta.id || meta.name || 'dev.everestmcarthur.client-utils',
+							name: meta.name || meta.id || 'Client Utils',
+							description: meta.description || 'Custom client-side slash commands',
+							icon: rawIcon,
+						}
+			cmd._pluginMeta = parsedMeta
 			commands.set(cmd.name, cmd)
 			syncIndexStore()
 		}
@@ -343,8 +593,13 @@ export default plugin({
 				sectionIndex++
 
 				const sectionName = group.meta.name || groupId
+				const sectionIcon =
+					group.meta.icon ||
+					group.meta.avatar ||
+					group.meta.picture ||
+					group.meta.image ||
+					getInitialsAvatar(sectionName)
 				const sectionDesc = group.meta.description || 'Custom client-side slash commands'
-				const sectionIcon = group.meta.icon || defaultAvatar
 
 				const sectionDescriptor = {
 					type: 1,
@@ -692,41 +947,61 @@ export default plugin({
 		}
 		hookApplicationStore()
 
-		let origGetUrl: any
-		let origGetSource: any
 		let IconMod: any
 		try {
-			const iconModId = discordModules['utils/AvatarUtils.tsx']
-			const rawIconMod = (globalThis as any).__r?.(iconModId)
-			IconMod =
-				rawIconMod?.default ||
-				rawIconMod ||
-				getMod(filters.withProps('getApplicationIconURL', 'getApplicationIconSource'))
-
+			const rawIconMod = (globalThis as any).__r?.(1397)
+			IconMod = rawIconMod?.default || rawIconMod || getMod(filters?.withProps('getApplicationIconSource'))
 			if (IconMod) {
-				origGetUrl = IconMod.getApplicationIconURL
-				IconMod.getApplicationIconURL = function (app: any) {
-					const appId = app?.id || app?.applicationId
+				const unpatchSrc = revenge.patcher.instead(IconMod, 'getApplicationIconSource', (args: any, orig: any) => {
+					const [app] = args
+					const appId = app?.id || app?.applicationId || (typeof app === 'string' ? app : null)
 					if (typeof appId === 'string' && appId.startsWith('999')) {
 						const { allSections } = buildAllSections()
 						const sec = allSections.find((s: any) => s.id === appId)
-						if (sec?.descriptor?.icon && (sec.descriptor.icon.startsWith('http') || sec.descriptor.icon.length === 32)) {
-							if (sec.descriptor.icon.startsWith('http')) return sec.descriptor.icon
-							return `https://cdn.discordapp.com/avatars/${sec.id}/${sec.descriptor.icon}.png?size=1024`
-						}
-						const currentUser = getCurrentUserSafe()
-						return getAvatarUrl(currentUser)
+						const icon = sec?.descriptor?.icon
+						if (icon && typeof icon === 'string' && icon.startsWith('http')) return { uri: icon }
+						const sectionName = sec?.name || app?.name || (appId.includes('000000000001') ? 'Client Utils' : 'Rose Utils')
+						return { uri: getInitialsAvatar(sectionName) }
 					}
-					return origGetUrl?.apply(this, arguments)
-				}
-				origGetSource = IconMod.getApplicationIconSource
-				IconMod.getApplicationIconSource = function (app: any) {
-					const appId = app?.id || app?.applicationId
+					return orig.apply(IconMod, args)
+				})
+				cleanup(unpatchSrc)
+
+				const unpatchUrl = revenge.patcher.instead(IconMod, 'getApplicationIconURL', (args: any, orig: any) => {
+					const [app] = args
+					const appId = app?.id || app?.applicationId || (typeof app === 'string' ? app : null)
 					if (typeof appId === 'string' && appId.startsWith('999')) {
-						const url = IconMod.getApplicationIconURL(app)
-						return { uri: url }
+						const { allSections } = buildAllSections()
+						const sec = allSections.find((s: any) => s.id === appId)
+						const icon = sec?.descriptor?.icon
+						if (icon && typeof icon === 'string' && icon.startsWith('http')) return icon
+						const sectionName = sec?.name || app?.name || (appId.includes('000000000001') ? 'Client Utils' : 'Rose Utils')
+						return getInitialsAvatar(sectionName)
 					}
-					return origGetSource?.apply(this, arguments)
+					return orig.apply(IconMod, args)
+				})
+				cleanup(unpatchUrl)
+
+				if (typeof IconMod.getUserAvatarSource === 'function') {
+					const unpatchUserAvatarSrc = revenge.patcher.instead(IconMod, 'getUserAvatarSource', (args: any, orig: any) => {
+						const user = args[0]
+						if (typeof user?.avatar === 'string' && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'))) {
+							return { uri: user.avatar }
+						}
+						return orig.apply(IconMod, args)
+					})
+					cleanup(unpatchUserAvatarSrc)
+				}
+
+				if (typeof IconMod.getUserAvatarURL === 'function') {
+					const unpatchUserAvatarUrl = revenge.patcher.instead(IconMod, 'getUserAvatarURL', (args: any, orig: any) => {
+						const user = args[0]
+						if (typeof user?.avatar === 'string' && (user.avatar.startsWith('http://') || user.avatar.startsWith('https://'))) {
+							return user.avatar
+						}
+						return orig.apply(IconMod, args)
+					})
+					cleanup(unpatchUserAvatarUrl)
 				}
 			}
 		} catch (err) {
@@ -1036,12 +1311,16 @@ export default plugin({
 							const guildId = channel?.guild_id || channel?.getGuildId?.() || null
 							const currentUser = getCurrentUserSafe()
 
-							const rawOptions =
-								data?.applicationCommand?.optionValues ||
-								data?.command?.optionValues ||
-								data?.optionValues ||
-								{}
-							const parsedArgs = parseOptionValues(rawOptions)
+							const parsedArgs: Record<string, any> = {
+								...parseOptionValues(data?.applicationCommand?.options),
+								...parseOptionValues(data?.command?.options),
+								...parseOptionValues(data?.options),
+								...parseOptionValues(data?.params?.options),
+								...parseOptionValues(data?.applicationCommand?.optionValues),
+								...parseOptionValues(data?.command?.optionValues),
+								...parseOptionValues(data?.optionValues),
+								...parseOptionValues(data?.params?.optionValues),
+							}
 
 							setTimeout(() => {
 								try {
@@ -1058,14 +1337,15 @@ export default plugin({
 								channelId,
 								guildId,
 								currentUser,
-								reply: (options: any) => sendReply(channelId, options, pluginName),
+								reply: (options: any) =>
+									sendReply(channelId, options, pluginName, cmdName, registered._pluginMeta),
 							}
 
 							Promise.resolve(registered.execute(parsedArgs, ctx)).catch((err: any) => {
 								sendReply(channelId, {
 									content: `❌ Command Error: ${err?.message || err}`,
 									ephemeral: true,
-								}, pluginName)
+								}, pluginName, cmdName, registered._pluginMeta)
 							})
 
 							return Promise.resolve()
@@ -1118,14 +1398,15 @@ export default plugin({
 									channelId,
 									guildId,
 									currentUser,
-									reply: (options: any) => sendReply(channelId, options, pluginName),
+									reply: (options: any) =>
+										sendReply(channelId, options, pluginName, cmdName, registered._pluginMeta),
 								}
 
 								Promise.resolve(registered.execute(parsedArgs, ctx)).catch((err: any) => {
 									sendReply(channelId, {
 										content: `❌ Command Error: ${err?.message || err}`,
 										ephemeral: true,
-									}, pluginName)
+									}, pluginName, cmdName, registered._pluginMeta)
 								})
 
 								return Promise.resolve()
@@ -1185,14 +1466,15 @@ export default plugin({
 									channelId,
 									guildId,
 									currentUser,
-									reply: (options: any) => sendReply(channelId, options, pluginName),
+									reply: (options: any) =>
+										sendReply(channelId, options, pluginName, cmdName, registered._pluginMeta),
 								}
 
 								Promise.resolve(registered.execute(parsedArgs, ctx)).catch((err: any) => {
 									sendReply(channelId, {
 										content: `❌ Command Error: ${err?.message || err}`,
 										ephemeral: true,
-									}, pluginName)
+									}, pluginName, cmdName, registered._pluginMeta)
 								})
 
 								return { content: '' }
@@ -1208,12 +1490,27 @@ export default plugin({
 			logger.error(`[ClientUtils] Failed to hook LegacyMod: ${err}`)
 		}
 
+		const responseFormatOption = {
+			type: 3,
+			name: 'format',
+			displayName: 'format',
+			description: 'Response format: text, embed, or cv2 (optional)',
+			required: false,
+			choices: [
+				{ name: 'Text', displayName: 'Text', value: 'text' },
+				{ name: 'Embed', displayName: 'Embed', value: 'embed' },
+				{ name: 'Components V2', displayName: 'Components V2', value: 'cv2' },
+			],
+		}
+
 		const clientUtilsApi = {
-			version: '1.0.10',
+			version: '1.0.20',
 			commands,
 			registerCommand,
 			unregisterCommand,
 			sendReply,
+			builders,
+			responseFormatOption,
 			getCommands: () => Array.from(commands.values()),
 		}
 
@@ -1236,11 +1533,10 @@ export default plugin({
 			type: 3,
 			name: 'ephemeral',
 			displayName: 'ephemeral',
-			description: 'Show response only to you (default: yes)',
+			description: 'Show response only to you (optional)',
 			required: false,
 			choices: [
-				{ name: 'yes', displayName: 'Yes', value: 'yes' },
-				{ name: 'no', displayName: 'No', value: 'no' },
+				{ name: 'True', displayName: 'True', value: 'true' },
 			],
 		}
 

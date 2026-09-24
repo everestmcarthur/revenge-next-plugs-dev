@@ -12,6 +12,8 @@ export enum ApplicationCommandOptionType {
 	ATTACHMENT = 11,
 }
 
+export type ResponseFormat = 'text' | 'embed' | 'cv2'
+
 export interface CommandOptionChoice {
 	name: string
 	displayName: string
@@ -77,9 +79,20 @@ export interface DiscordEmbed {
 
 export interface ReplyOptions {
 	content?: string
-	ephemeral?: boolean
-	embed?: DiscordEmbed
-	embeds?: DiscordEmbed[]
+	ephemeral?: boolean | string | number
+	format?: ResponseFormat
+	name?: string
+	username?: string
+	authorName?: string
+	icon?: string
+	picture?: string
+	avatar?: string
+	image?: string
+	imageUrl?: string
+	embed?: DiscordEmbed | any
+	embeds?: (DiscordEmbed | any)[]
+	components?: any[]
+	attachments?: any[]
 }
 
 export interface CommandContext {
@@ -96,4 +109,10 @@ export interface ClientCommand {
 	section?: CommandSection
 	execute: (args: Record<string, any>, ctx: CommandContext) => Promise<void> | void
 	_pluginId?: string
+	_pluginMeta?: any
+}
+
+export interface ClientUtilsStorage {
+	defaultResponseFormat: ResponseFormat
+	showSectionIcons: boolean
 }

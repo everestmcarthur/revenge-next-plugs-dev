@@ -6,6 +6,7 @@
 		"build": "bun node_modules/@revenge-mod/plugin-cli/src/main.ts build",
 		"build:dev": "bun node_modules/@revenge-mod/plugin-cli/src/main.ts build --dev",
 		"generate-index": "bun node_modules/@revenge-mod/plugin-cli/src/main.ts generate-index",
+		"package": "bun scripts/package-dist.mjs",
 		"serve": "bun node_modules/@revenge-mod/plugin-cli/src/main.ts serve",
 		"lint": "biome check",
 		"lint:types": "tsc --noEmit && tsc -p worker --noEmit && tsc -p cli --noEmit"

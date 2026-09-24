@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.view-raw",
+	"name": "ViewRaw",
+	"description": "View a message's raw JSON data - searchable, syntax-highlighted, and copyable with one tap.",
+	"author": "bwlok, Rosie",
+	"icon": "CodeIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

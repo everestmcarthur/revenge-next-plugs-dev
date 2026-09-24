@@ -2,7 +2,7 @@ import { Design } from '@revenge-mod/discord/design'
 import { Image, ScrollView, TouchableOpacity, View } from 'react-native'
 import type { PluginApi } from '@revenge-mod/plugins/types'
 import { PRESETS } from '../lib/presets'
-import type { ClydeEditorStorage } from '../lib/types'
+import { CLYDE_DEFAULTS, type ClydeEditorStorage } from '../lib/types'
 import { sendTestClydeMessage, updateActiveClydeMessages } from '../patches/clyde'
 import ColorInput from './ColorInput'
 
@@ -12,16 +12,24 @@ export default function Settings({
 	api: PluginApi<{ jsonStorage: ClydeEditorStorage }>
 }) {
 	const { TableRowGroup, TableSwitchRow, TextInput, Text, Button } = Design
-	const storage = api.jsonStorage.use()
+	const liveStorage = api.jsonStorage.use()
+	const storage = { ...CLYDE_DEFAULTS, ...(liveStorage ?? {}) }
 
-	const isDestroyed = !!storage?.destroyClyde
-	const currentName = storage?.name || 'Clyde'
+	const isDestroyed = !!storage.destroyClyde
+	const currentName = storage.name || 'Clyde'
 	const currentAvatar =
-		storage?.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'
-	const currentTagText = storage?.tagText || 'APP'
-	const currentTagBg = storage?.tagBackgroundColor || '#5865F2'
-	const currentTagTextCol = storage?.tagTextColor || '#FFFFFF'
-	const currentColor = storage?.color || '#5865F2'
+		storage.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'
+	const currentTagText = storage.tagText || 'APP'
+	const currentTagBg = storage.tagBackgroundColor || '#5865F2'
+	const currentTagTextCol = storage.tagTextColor || '#FFFFFF'
+	const currentColor = storage.color || '#5865F2'
+
+	const handleSave = () => {
+		updateActiveClydeMessages(api.jsonStorage)
+		try {
+			api.plugin.requireReload()
+		} catch {}
+	}
 
 	const applyPreset = (presetId: string) => {
 		const p = PRESETS.find(pr => pr.id === presetId)
@@ -43,6 +51,15 @@ export default function Settings({
 
 	return (
 		<ScrollView style={{ flex: 1, backgroundColor: '#1E1F22' }}>
+			{/* Save Header Action */}
+			<View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+				<Button
+					variant="primary"
+					text="💾 Save & Prompt Reload"
+					onPress={handleSave}
+				/>
+			</View>
+
 			{/* Destroy Clyde */}
 			<TableRowGroup title="DESTROY CLYDE">
 				<TableSwitchRow
@@ -50,7 +67,6 @@ export default function Settings({
 					value={isDestroyed}
 					onValueChange={(v: boolean) => {
 						api.jsonStorage.set({ destroyClyde: v })
-						api.plugin.requireReload()
 					}}
 				/>
 				<View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
@@ -136,7 +152,7 @@ export default function Settings({
 										alignItems: 'center',
 									}}
 								>
-									{storage?.tagVerified && (
+									{storage.tagVerified && (
 										<Text
 											style={{
 												color: currentTagTextCol,
@@ -163,7 +179,7 @@ export default function Settings({
 								variant="text-sm/normal"
 								style={{ color: '#DBDEE1', marginTop: 4 }}
 							>
-								{storage?.bio || "I'm your friendly Discord bot companion!"}
+								{storage.bio || "I'm your friendly Discord bot companion!"}
 							</Text>
 						</View>
 					</View>
@@ -182,7 +198,7 @@ export default function Settings({
 					}}
 				>
 					{PRESETS.map(p => {
-						const isSelected = storage?.selectedPreset === p.id
+						const isSelected = storage.selectedPreset === p.id
 						return (
 							<TouchableOpacity
 								key={p.id}
@@ -216,7 +232,7 @@ export default function Settings({
 				<TextInput
 					label="Bot Name"
 					placeholder="Clyde"
-					value={storage?.name ?? 'Clyde'}
+					value={storage.name ?? 'Clyde'}
 					onChange={(v: string) => {
 						api.jsonStorage.set({ name: v, selectedPreset: 'custom' })
 						updateActiveClydeMessages(api.jsonStorage)
@@ -225,7 +241,7 @@ export default function Settings({
 				<TextInput
 					label="Avatar URL"
 					placeholder="https://..."
-					value={storage?.avatar ?? ''}
+					value={storage.avatar ?? ''}
 					onChange={(v: string) => {
 						api.jsonStorage.set({ avatar: v, selectedPreset: 'custom' })
 						updateActiveClydeMessages(api.jsonStorage)
@@ -234,14 +250,14 @@ export default function Settings({
 				<TextInput
 					label="Banner URL"
 					placeholder="https://..."
-					value={storage?.banner ?? ''}
+					value={storage.banner ?? ''}
 					onChange={(v: string) =>
 						api.jsonStorage.set({ banner: v, selectedPreset: 'custom' })
 					}
 				/>
 				<ColorInput
 					title="Role / Name Color"
-					value={storage?.color}
+					value={storage.color}
 					placeholder="#5865F2"
 					onChange={(v: string) => {
 						api.jsonStorage.set({ color: v, selectedPreset: 'custom' })
@@ -255,7 +271,7 @@ export default function Settings({
 				<TextInput
 					label="Badge Text"
 					placeholder="APP"
-					value={storage?.tagText ?? 'APP'}
+					value={storage.tagText ?? 'APP'}
 					onChange={(v: string) => {
 						api.jsonStorage.set({ tagText: v, selectedPreset: 'custom' })
 						updateActiveClydeMessages(api.jsonStorage)
@@ -263,7 +279,7 @@ export default function Settings({
 				/>
 				<ColorInput
 					title="Badge Background Color"
-					value={storage?.tagBackgroundColor}
+					value={storage.tagBackgroundColor}
 					placeholder="#5865F2"
 					onChange={(v: string) => {
 						api.jsonStorage.set({
@@ -275,7 +291,7 @@ export default function Settings({
 				/>
 				<ColorInput
 					title="Badge Text Color"
-					value={storage?.tagTextColor}
+					value={storage.tagTextColor}
 					placeholder="#FFFFFF"
 					onChange={(v: string) => {
 						api.jsonStorage.set({
@@ -287,7 +303,7 @@ export default function Settings({
 				/>
 				<TableSwitchRow
 					label="Verified Checkmark"
-					value={storage?.tagVerified ?? true}
+					value={storage.tagVerified ?? true}
 					onValueChange={(v: boolean) => {
 						api.jsonStorage.set({ tagVerified: v, selectedPreset: 'custom' })
 						updateActiveClydeMessages(api.jsonStorage)
@@ -300,7 +316,7 @@ export default function Settings({
 				<TextInput
 					label="Bio / Description"
 					placeholder="I'm your friendly Discord bot companion!"
-					value={storage?.bio ?? "I'm your friendly Discord bot companion!"}
+					value={storage.bio ?? "I'm your friendly Discord bot companion!"}
 					onChange={(v: string) =>
 						api.jsonStorage.set({ bio: v, selectedPreset: 'custom' })
 					}
@@ -312,6 +328,11 @@ export default function Settings({
 				<View style={{ padding: 16, gap: 12 }}>
 					<Button
 						variant="primary"
+						text="💾 Save & Prompt Reload"
+						onPress={handleSave}
+					/>
+					<Button
+						variant="secondary"
 						text="Send Test Message to Chat"
 						onPress={() => {
 							sendTestClydeMessage(api.jsonStorage)

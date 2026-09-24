@@ -24,3 +24,17 @@ export interface ClydeEditorStorage {
 	color: string
 	selectedPreset: string
 }
+
+export const CLYDE_DEFAULTS: ClydeEditorStorage = {
+	destroyClyde: false,
+	name: 'Clyde',
+	avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
+	banner: '',
+	bio: "I'm your friendly Discord bot companion!",
+	tagText: 'APP',
+	tagTextColor: '#FFFFFF',
+	tagBackgroundColor: '#5865F2',
+	tagVerified: true,
+	color: '#5865F2',
+	selectedPreset: 'clyde',
+}
