@@ -1,22 +1,39 @@
 export function getDiscordFinders(): any {
 	return (
-		(revenge.discord.utils as any)?.modules?.finders ??
-		(revenge.discord.utils as any)?.finders ??
+		(revenge.discord?.utils as any)?.modules?.finders ??
+		(revenge.discord?.utils as any)?.finders ??
 		(revenge as any)?.everest
 	)
 }
 
 /**
  * Resolves a module by its recorded source path in Discord's bundle.
- * Returns the module exports (unwrapping the [exports, id] tuple if returned).
+ * Returns the module exports (unwrapping the [exports, id] tuple).
  */
 export function findByImportedPath<T = any>(path: string): T | null {
 	const finders = getDiscordFinders()
 	if (typeof finders?.lookupModuleWithImportedPath === 'function') {
 		try {
 			const res = finders.lookupModuleWithImportedPath(path)
-			if (res) {
-				return Array.isArray(res) ? (res[0] as T) : (res as T)
+			if (res && res.length > 0) {
+				return (res[0]?.default ?? res[0]) as T
+			}
+		} catch {}
+	}
+	return null
+}
+
+/**
+ * Resolves a module and its numeric ID by its recorded source path.
+ * Returns [exports, id] or null if not resolved yet.
+ */
+export function findTupleByImportedPath<T = any>(path: string): [T, number] | null {
+	const finders = getDiscordFinders()
+	if (typeof finders?.lookupModuleWithImportedPath === 'function') {
+		try {
+			const res = finders.lookupModuleWithImportedPath(path)
+			if (res && res.length > 0) {
+				return [res[0] as T, res[1] as number]
 			}
 		} catch {}
 	}
@@ -48,12 +65,12 @@ export function waitForImportedPath<T = any>(
  */
 export function getImportedModule<T = any>(
 	path: string,
-	onModule: (exports: T) => void,
+	onModule: (exports: T, id?: number) => void,
 ): (() => void) | void {
-	const existing = findByImportedPath<T>(path)
-	if (existing) {
-		onModule(existing)
+	const tuple = findTupleByImportedPath<T>(path)
+	if (tuple) {
+		onModule(tuple[0], tuple[1])
 		return
 	}
-	return waitForImportedPath<T>(path, (exp) => onModule(exp))
+	return waitForImportedPath<T>(path, (exp, id) => onModule(exp, id))
 }

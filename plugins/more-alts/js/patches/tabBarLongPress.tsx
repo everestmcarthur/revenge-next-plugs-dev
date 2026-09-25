@@ -76,25 +76,30 @@ export default function patchTabBarLongPress(
 
 	for (const name of tabComponentNames) {
 		try {
-			const filter = revenge.modules.finders.filters.createFilterGenerator(
-				([n]: [string], _id: any, exports: any) =>
-					exports?.name === n ||
-					exports?.displayName === n ||
-					exports?.default?.name === n ||
-					exports?.default?.displayName === n,
-				([n]: [string]) => `typeName(${n})`,
-				revenge.modules.finders.filters.FilterScopes.All,
-			)(name)
+			const filter = Object.assign(
+				(_id: any, exports: any) => {
+					const m = exports?.default ?? exports
+					return (
+						m?.name === name ||
+						m?.displayName === name ||
+						m?.type?.name === name ||
+						m?.type?.displayName === name
+					)
+				},
+				{ key: `typeName(${name})`, scopes: 4 },
+			)
 
-			const matches = revenge.modules.finders.lookupModule(filter)
-			for (const m of matches || []) patchTabItem(m)
+			const matches = revenge.modules.finders.lookupModule(filter as any)
+			if (matches && matches !== revenge.modules.finders.NotFoundResult && matches[0]) {
+				patchTabItem(matches[0])
+			}
 
 			const unsub = revenge.modules.finders.getModules(
-				filter,
+				filter as any,
 				(m) => patchTabItem(m),
 				{ returnNamespace: true },
 			)
-			cleanups.push(() => unsub?.())
+			if (typeof unsub === 'function') cleanups.push(unsub)
 		} catch {}
 	}
 

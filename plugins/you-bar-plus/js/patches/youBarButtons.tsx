@@ -1,6 +1,6 @@
-import { discordModules } from '@shared'
+import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
 import type { JsonStorage } from '@revenge-mod/json-storage'
-import { saveCachedModuleId, type YouBarPlusStorage } from '../lib/types'
+import { type YouBarPlusStorage } from '../lib/types'
 
 let updateCallbacks: Array<() => void> = []
 
@@ -30,7 +30,7 @@ function isYouBarNotificationsButton(mod: any): boolean {
 	return name === 'YouBarNotificationsButton'
 }
 
-function getTransitionRouter(storage?: JsonStorage<YouBarPlusStorage>) {
+function getTransitionRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	if (typeof cachedTransitionRouter?.transitionToGuild === 'function') {
 		return cachedTransitionRouter
 	}
@@ -41,19 +41,14 @@ function getTransitionRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 		return everest
 	}
 
-	if (typeof (globalThis as any).__r === 'function') {
-		const cachedId = storage?.cache?.moduleCache?.transitionRouterId
-		if (typeof cachedId === 'number') {
-			try {
-				const mod = (globalThis as any).__r(cachedId)
-				const target = mod?.default ?? mod
-				if (typeof target?.transitionToGuild === 'function') {
-					cachedTransitionRouter = target
-					return target
-				}
-			} catch {}
+	try {
+		const direct = findByImportedPath('modules/routing/router_utils.tsx')
+		const target = direct?.default ?? direct
+		if (typeof target?.transitionToGuild === 'function') {
+			cachedTransitionRouter = target
+			return target
 		}
-	}
+	} catch {}
 
 	try {
 		const { filters, lookupModule } = revenge.modules.finders
@@ -62,9 +57,6 @@ function getTransitionRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 			const mod = res[0]?.default ?? res[0]
 			if (typeof mod?.transitionToGuild === 'function') {
 				cachedTransitionRouter = mod
-				if (typeof res[1] === 'number' && storage) {
-					saveCachedModuleId(storage, 'transitionRouterId', res[1])
-				}
 				return mod
 			}
 		}
@@ -73,7 +65,7 @@ function getTransitionRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 	return undefined
 }
 
-function getUserSettingsRouter(storage?: JsonStorage<YouBarPlusStorage>) {
+function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	if (typeof cachedUserSettingsRouter?.openUserSettings === 'function') {
 		return cachedUserSettingsRouter
 	}
@@ -84,44 +76,34 @@ function getUserSettingsRouter(storage?: JsonStorage<YouBarPlusStorage>) {
 		return everest
 	}
 
-	if (typeof (globalThis as any).__r === 'function') {
-		const cachedId = storage?.cache?.moduleCache?.userSettingsId
-		if (typeof cachedId === 'number') {
-			try {
-				const mod = (globalThis as any).__r(cachedId)
-				const target = mod?.default ?? mod
-				if (
-					typeof target?.openUserSettings === 'function' &&
-					!target.$$baseObject &&
-					!target.$$loader
-				) {
-					cachedUserSettingsRouter = target
-					return target
-				}
-			} catch {}
+	try {
+		const direct = findByImportedPath('modules/user_settings/core/native/openUserSettings.tsx')
+		const target = direct?.default ?? direct
+		if (
+			typeof target?.openUserSettings === 'function' &&
+			!target.$$baseObject &&
+			!target.$$loader
+		) {
+			cachedUserSettingsRouter = target
+			return target
 		}
-	}
+	} catch {}
 
 	try {
-		const { filters, lookupModule } = revenge.modules.finders
-		const f = filters.createFilterGenerator(
-			(_a, _id, exp) => {
+		const f = Object.assign(
+			(_id: any, exp: any) => {
 				const t = exp?.default ?? exp
 				if (!t || typeof t !== 'object') return false
 				if (t.$$baseObject || t.$$loader || t.messages || t.defaultLocale) return false
 				return typeof t.openUserSettings === 'function'
 			},
-			() => 'userSettingsAction',
-			filters.FilterScopes.All,
-		)()
-		const res = lookupModule(f)
+			{ key: 'userSettingsAction', scopes: 4 },
+		)
+		const res = revenge.modules.finders.lookupModule(f as any)
 		if (res && res !== revenge.modules.finders.NotFoundResult && res[0]) {
 			const t = res[0]?.default ?? res[0]
 			if (typeof t?.openUserSettings === 'function') {
 				cachedUserSettingsRouter = t
-				if (typeof res[1] === 'number' && storage) {
-					saveCachedModuleId(storage, 'userSettingsId', res[1])
-				}
 				return t
 			}
 		}
@@ -375,83 +357,38 @@ export default function patchYouBarButtons(
 		cleanups.push(unpatch)
 	}
 
-	const checkFastCache = (cache?: YouBarPlusStorage['moduleCache']) => {
-		if (typeof (globalThis as any).__r !== 'function') return
-		const req = (globalThis as any).__r
-		const cachedId = cache?.youBarButtonId ?? storage.cache?.moduleCache?.youBarButtonId
-		const notifId = discordModules['modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx']
-		const candidates = new Set<number>([
-			...(typeof cachedId === 'number' ? [cachedId] : []),
-			...(typeof notifId === 'number' ? [notifId] : []),
-			16488,
-			16464,
-			16476,
-			16427,
-		])
-		for (const id of candidates) {
-			try {
-				const mod = req(id)
-				if (isYouBarNotificationsButton(mod)) {
-					applyPatch(mod, id)
-				}
-			} catch {}
-		}
-
-		if (patchedButtonTargets.size === 0) {
-			const base = typeof notifId === 'number' ? notifId : 16464
-			for (let id = base - 50; id <= base + 100; id++) {
-				try {
-					const mod = req(id)
-					if (isYouBarNotificationsButton(mod)) {
-						applyPatch(mod, id)
-						break
-					}
-				} catch {}
-			}
-		}
-	}
-
-	checkFastCache()
-
-	storage
-		.get()
-		.then((data) => {
-			checkFastCache(data?.moduleCache)
-		})
-		.catch(() => {})
-
 	try {
-		const filter = revenge.modules.finders.filters.createFilterGenerator(
-			([name]: [string], exports: any) => {
-				const def = exports?.default
-				return (
-					exports?.name === name ||
-					exports?.displayName === name ||
-					exports?.type?.name === name ||
-					exports?.type?.displayName === name ||
-					def?.name === name ||
-					def?.displayName === name ||
-					def?.type?.name === name ||
-					def?.type?.displayName === name
-				)
-			},
-			([name]: [string]) => `componentName(${name})`,
-			revenge.modules.finders.filters.FilterScopes.All,
-		)('YouBarNotificationsButton')
+		const imported = findByImportedPath(
+			'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx',
+		)
+		if (imported) applyPatch(imported)
 
-		const res = revenge.modules.finders.lookupModule(filter)
+		const unsubPath = waitForImportedPath(
+			'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx',
+			(m, id) => {
+				if (m) applyPatch(m, id)
+			},
+		)
+		if (unsubPath) cleanups.push(unsubPath)
+
+		const filter = Object.assign(
+			(_id: any, exports: any) => isYouBarNotificationsButton(exports),
+			{ key: 'name(YouBarNotificationsButton)', scopes: 4 },
+		)
+
+		const res = revenge.modules.finders.lookupModule(filter as any)
 		if (res && res !== revenge.modules.finders.NotFoundResult && res[0]) {
 			applyPatch(res[0], res[1] as number | undefined)
 		}
 
 		const unsub = revenge.modules.finders.getModules(
-			filter,
+			filter as any,
 			(mod, id) => {
 				applyPatch(mod, id as number | undefined)
 			},
 			{ cached: true, returnNamespace: true },
 		)
-		cleanups.push(() => unsub?.())
+		if (typeof unsub === 'function') cleanups.push(unsub)
 	} catch (e) {
 		console.error('[YouBar+] Error finding YouBarNotificationsButton:', e)
 	}

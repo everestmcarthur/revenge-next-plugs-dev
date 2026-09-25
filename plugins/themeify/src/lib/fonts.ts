@@ -33,13 +33,15 @@ export async function fetchFontFromUrl(url: string): Promise<FontDefinition> {
 	return validated
 }
 
-export function saveFont(
+export async function saveFont(
 	storageApi: any,
 	fontDef: FontDefinition,
 	select = false,
-): InstalledFont {
+	currentStorage?: ThemeifyStorage,
+): Promise<InstalledFont> {
 	const validated = validateFont(fontDef)
-	const cache = { ...(storageApi.cache ?? {}) } as ThemeifyStorage
+	const current = currentStorage ?? (await storageApi.get()) ?? {}
+	const cache: ThemeifyStorage = { ...current }
 	const fonts = { ...(cache.fonts ?? {}) }
 
 	const installed: InstalledFont = {
@@ -58,12 +60,17 @@ export function saveFont(
 		writeFontToNative(validated)
 	}
 
-	storageApi.set(cache)
+	await storageApi.set(cache)
 	return installed
 }
 
-export function selectFont(storageApi: any, name: string | null): void {
-	const cache = { ...(storageApi.cache ?? {}) } as ThemeifyStorage
+export async function selectFont(
+	storageApi: any,
+	name: string | null,
+	currentStorage?: ThemeifyStorage,
+): Promise<void> {
+	const current = currentStorage ?? (await storageApi.get()) ?? {}
+	const cache: ThemeifyStorage = { ...current }
 	cache.selectedFontName = name
 
 	const fonts = { ...(cache.fonts ?? {}) }
@@ -81,11 +88,16 @@ export function selectFont(storageApi: any, name: string | null): void {
 		writeFontToNative(null)
 	}
 
-	storageApi.set(cache)
+	await storageApi.set(cache)
 }
 
-export function deleteFont(storageApi: any, name: string): void {
-	const cache = { ...(storageApi.cache ?? {}) } as ThemeifyStorage
+export async function deleteFont(
+	storageApi: any,
+	name: string,
+	currentStorage?: ThemeifyStorage,
+): Promise<void> {
+	const current = currentStorage ?? (await storageApi.get()) ?? {}
+	const cache: ThemeifyStorage = { ...current }
 	const fonts = { ...(cache.fonts ?? {}) }
 
 	const wasSelected = cache.selectedFontName === name
@@ -97,5 +109,6 @@ export function deleteFont(storageApi: any, name: string): void {
 		writeFontToNative(null)
 	}
 
-	storageApi.set(cache)
+	await storageApi.set(cache)
 }
+

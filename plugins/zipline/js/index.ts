@@ -1,4 +1,4 @@
-import { discordModules } from '../../shared/discord-modules'
+import { findByImportedPath, waitForImportedPath } from '../../shared/finders'
 import { isExcludedDomain, shortenUrl, uploadFile } from './lib/api'
 import { DEFAULT_STORAGE, type ZiplineStorage } from './lib/types'
 import Settings from './ui/Settings'
@@ -165,23 +165,19 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 			}
 		}
 
-		// Hook MessageActions via shared module ID or filter lookup
+		// Hook MessageActions via imported path or property filter
 		try {
-			const mod = revenge.modules.metro.getInitializedModuleExports(
-				discordModules['actions/MessageActionCreators.tsx'],
-			)
+			const mod =
+				findByImportedPath('actions/MessageActionCreators.tsx') ??
+				revenge.modules.finders.lookupModule(
+					revenge.modules.finders.filters.withProps('sendMessage', 'editMessage'),
+				)?.[0]
 			if (mod) patchMessageActions(mod)
-		} catch {}
 
-		try {
-			const { filters, lookupModule, getModules } = revenge.modules.finders
-			const filter = filters.withProps('sendMessage', 'editMessage')
-			const matches = lookupModule(filter)
-			for (const m of matches || []) patchMessageActions(m)
-			const unsub = getModules(filter, (m) => patchMessageActions(m), {
-				returnNamespace: true,
+			const unsubPath = waitForImportedPath('actions/MessageActionCreators.tsx', (m) => {
+				if (m) patchMessageActions(m)
 			})
-			cleanups.push(() => unsub?.())
+			if (unsubPath) cleanups.push(unsubPath)
 		} catch (e) {
 			api.logger.error(`${TAG} Error finding MessageActions: ${e}`)
 		}

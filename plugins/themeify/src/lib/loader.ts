@@ -1,4 +1,4 @@
-import { applyOpacity, parseTheme, type ParsedTheme } from './parser'
+import { applyOpacity, parseTheme, SEMANTIC_FALLBACKS, type ParsedTheme } from './parser'
 import type { ThemeData, ThemeifyStorage } from '../types'
 
 interface ColorTokens {
@@ -51,34 +51,65 @@ export function triggerThemeRerender(reference: 'dark' | 'darker' | 'midnight' |
 	try {
 		const ntm = getNativeThemeModule()
 		if (ntm?.updateTheme) {
-			ntm.updateTheme(reference)
+			const opposite = reference === 'light' ? 'midnight' : 'light'
+			ntm.updateTheme(opposite)
+			setTimeout(() => {
+				try {
+					ntm.updateTheme(reference)
+				} catch {}
+			}, 25)
 		}
 	} catch (e) {
 		console.warn('[Themeify] Failed to trigger NativeThemeModule.updateTheme', e)
+	}
+
+	try {
+		const everest = (globalThis as any).revenge?.everest
+		const ts = everest?.getThemeStore?.()
+		ts?.emitChange?.()
+	} catch {}
+}
+
+function patchRawColors(rawMap: Record<string, string>) {
+	try {
+		const metro = (globalThis as any).revenge?.modules?.metro
+		const mod576 = metro?.getInitializedModuleExports?.(576)
+		const targets = [mod576?.RawColor, getTokens()?.unsafe_rawColors].filter(Boolean)
+
+		if (!origRawColors && mod576?.RawColor) {
+			origRawColors = { ...mod576.RawColor }
+		}
+
+		for (const target of targets) {
+			for (const [key, val] of Object.entries(rawMap)) {
+				try {
+					Object.defineProperty(target, key, {
+						configurable: true,
+						enumerable: true,
+						get() {
+							return activeParsedTheme?.raw?.[key] || val || origRawColors?.[key]
+						},
+					})
+				} catch {}
+			}
+		}
+	} catch (e) {
+		console.error('[Themeify] Failed to patch RawColor', e)
 	}
 }
 
 export function installThemeHooks(tokens: ColorTokens) {
 	if (unpatches.length > 0) return
 
-	if (!origRawColors && tokens.unsafe_rawColors) {
-		origRawColors = { ...tokens.unsafe_rawColors }
-		try {
-			tokens.unsafe_rawColors = new Proxy(origRawColors, {
-				get(target, prop) {
-					if (typeof prop === 'string' && activeParsedTheme?.raw) {
-						const override = activeParsedTheme.raw[prop.toUpperCase()]
-						if (override) return override
-					}
-					return (target as any)[prop]
-				},
-			})
-		} catch (e) {
-			console.error('[Themeify] Failed to proxy unsafe_rawColors', e)
-		}
+	const metro = (globalThis as any).revenge?.modules?.metro
+	const mod576 = metro?.getInitializedModuleExports?.(576)
+	if (!origRawColors) {
+		origRawColors = { ...(mod576?.RawColor ?? tokens.unsafe_rawColors ?? {}) }
 	}
 
 	if (tokens.internal?.resolveSemanticColor) {
+		const semanticDefMap = mod576?.SemanticColor
+
 		const unpatch = (globalThis as any).revenge.patcher.instead(
 			tokens.internal,
 			'resolveSemanticColor',
@@ -90,15 +121,43 @@ export function installThemeHooks(tokens: ColorTokens) {
 				const [theme, token, extraOpacity] = args
 				try {
 					if (tokens.internal.isSemanticColor?.(token)) {
-						const name = tokens.internal.getSemanticColorName(token)
-						if (name) {
-							const override = activeParsedTheme.semantic[name.toUpperCase()]
+						const rawName = tokens.internal.getSemanticColorName(token)
+						if (rawName) {
+							const name = rawName.toUpperCase()
+
+							// 1. Direct match in parsed theme semantic colors
+							let override = activeParsedTheme.semantic[name]
+
+							// 2. Semantic fallbacks (e.g. TEXT_DEFAULT -> TEXT_NORMAL, BACKGROUND_BASE_LOWEST -> BG_BASE_TERTIARY)
+							if (!override && SEMANTIC_FALLBACKS[name]) {
+								for (const fb of SEMANTIC_FALLBACKS[name]) {
+									if (activeParsedTheme.semantic[fb]) {
+										override = activeParsedTheme.semantic[fb]
+										break
+									}
+								}
+							}
+
 							if (override) {
 								const mult = typeof extraOpacity === 'number' ? extraOpacity : 1
 								const finalOpacity = override.opacity * mult
 								return finalOpacity === 1
 									? override.value
 									: applyOpacity(override.value, finalOpacity)
+							}
+
+							// 3. Raw color dereference from Discord's SemanticColor definition
+							if (semanticDefMap?.[name]) {
+								const def = semanticDefMap[name]
+								const targetDef = def[theme] ?? def.darker ?? def.dark ?? def.midnight
+								if (targetDef?.raw) {
+									const rawVal = activeParsedTheme.raw[targetDef.raw]
+									if (rawVal) {
+										const mult = typeof extraOpacity === 'number' ? extraOpacity : 1
+										const finalOpacity = (targetDef.opacity ?? 1) * mult
+										return finalOpacity === 1 ? rawVal : applyOpacity(rawVal, finalOpacity)
+									}
+								}
 							}
 						}
 					}
@@ -122,6 +181,9 @@ export function applyTheme(
 
 	try {
 		activeParsedTheme = parseTheme(themeData, origRawColors ?? tokens.unsafe_rawColors ?? {}, overrideThemeType)
+		if (activeParsedTheme.raw) {
+			patchRawColors(activeParsedTheme.raw)
+		}
 		triggerThemeRerender(activeParsedTheme.reference)
 	} catch (e) {
 		console.error('[Themeify] Failed to parse and apply theme', e)
@@ -130,12 +192,31 @@ export function applyTheme(
 
 export function clearTheme() {
 	activeParsedTheme = null
+	if (origRawColors) {
+		try {
+			const metro = (globalThis as any).revenge?.modules?.metro
+			const mod576 = metro?.getInitializedModuleExports?.(576)
+			const targets = [mod576?.RawColor, getTokens()?.unsafe_rawColors].filter(Boolean)
+			for (const target of targets) {
+				for (const [key, val] of Object.entries(origRawColors)) {
+					try {
+						Object.defineProperty(target, key, {
+							configurable: true,
+							enumerable: true,
+							writable: true,
+							value: val,
+						})
+					} catch {}
+				}
+			}
+		} catch {}
+	}
 	triggerThemeRerender('darker')
 }
 
 export function applyFromStorage(storage: ThemeifyStorage) {
-	const activeId = storage.selectedThemeId
-	if (activeId && storage.themes[activeId]) {
+	const activeId = storage?.selectedThemeId
+	if (activeId && storage?.themes?.[activeId]) {
 		applyTheme(storage.themes[activeId].data, storage.overrideThemeType)
 	} else {
 		clearTheme()
@@ -148,24 +229,27 @@ export function initLoader(storageApi: any): () => void {
 		installThemeHooks(tokens)
 	}
 
-	const onStorage = () => {
+	const loadAndApply = (data: ThemeifyStorage) => {
 		try {
-			const cache = storageApi.cache ?? {}
-			applyFromStorage(cache)
+			if (data && typeof data === 'object') {
+				applyFromStorage(data)
+			}
 		} catch (e) {
-			console.error('[Themeify] Error in storage listener', e)
+			console.error('[Themeify] Error applying theme from storage', e)
 		}
 	}
 
 	let unsub: (() => void) | undefined
 	if (typeof storageApi.subscribe === 'function') {
-		unsub = storageApi.subscribe(onStorage)
+		unsub = storageApi.subscribe(() => {
+			if (typeof storageApi.get === 'function') {
+				storageApi.get().then(loadAndApply).catch(() => {})
+			}
+		})
 	}
 
-	if (storageApi.loaded) {
-		onStorage()
-	} else if (typeof storageApi.get === 'function') {
-		storageApi.get().then(onStorage).catch(() => {})
+	if (typeof storageApi.get === 'function') {
+		storageApi.get().then(loadAndApply).catch(() => {})
 	}
 
 	return () => {
@@ -179,3 +263,4 @@ export function initLoader(storageApi: any): () => void {
 		unpatches = []
 	}
 }
+

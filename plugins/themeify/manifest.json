@@ -5,7 +5,7 @@
 	"description": "Redesign theme manager for modern Discord Android with custom colors, pure modern tokens, and fonts.",
 	"author": "Rosie",
 	"icon": "PaintPaletteIcon",
-	"version": "1.1.0",
+	"version": "1.1.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

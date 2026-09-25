@@ -1,18 +1,30 @@
-import { Design } from '@revenge-mod/discord/design'
 import { useState } from 'react'
-import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native'
+import {
+	ActivityIndicator,
+	Alert,
+	ScrollView,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
+} from 'react-native'
 import type { PluginApi } from '@revenge-mod/plugins/types'
 import { DEFAULTS } from './defaults'
-import { deleteFont, fetchFontFromUrl, saveFont, selectFont } from './lib/fonts'
-import { deleteTheme, extractFontFromTheme, fetchThemeFromUrl, saveTheme, selectTheme } from './lib/themes'
+import { fetchFontFromUrl, saveFont, selectFont } from './lib/fonts'
+import { fetchThemeFromUrl, saveTheme, selectTheme } from './lib/themes'
 import type { ThemeifyStorage } from './types'
+import {
+	ActionButton,
+	SectionGroup,
+	ThemeListItem,
+	FontListItem,
+} from './components'
 
 export default function Settings({
 	api,
 }: {
 	api: PluginApi<{ jsonStorage: ThemeifyStorage }>
 }) {
-	const { Text, TextInput, Button, TableRowGroup } = Design
 	const liveStorage = api.jsonStorage.use()
 	const storage: ThemeifyStorage = { ...DEFAULTS, ...(liveStorage ?? {}) }
 
@@ -27,6 +39,11 @@ export default function Settings({
 
 	const restartApp = () => {
 		try {
+			const nativeApp = (globalThis as any).revenge?.modules?.native?.app
+			if (typeof nativeApp?.reloadApp === 'function') {
+				nativeApp.reloadApp()
+				return
+			}
 			const everest = (globalThis as any).revenge?.everest
 			if (typeof everest?.restartApp === 'function') {
 				everest.restartApp()
@@ -40,14 +57,14 @@ export default function Settings({
 		}
 	}
 
-	const handleInstallTheme = async () => {
-		if (!themeUrl.trim()) return
+	const handleInstallTheme = async (targetUrl?: string) => {
+		const urlToFetch = (targetUrl ?? themeUrl).trim()
+		if (!urlToFetch) return
 		setLoading(true)
 		setStatusMessage('Fetching theme...')
 		try {
-			const data = await fetchThemeFromUrl(themeUrl)
-			const id = themeUrl.trim()
-			saveTheme(api.jsonStorage, id, data, true)
+			const data = await fetchThemeFromUrl(urlToFetch)
+			await saveTheme(api.jsonStorage, urlToFetch, data, true, storage)
 			setThemeUrl('')
 			setStatusMessage(`✓ Installed and applied: ${data.name}`)
 		} catch (e: any) {
@@ -57,13 +74,14 @@ export default function Settings({
 		}
 	}
 
-	const handleInstallFont = async () => {
-		if (!fontUrl.trim()) return
+	const handleInstallFont = async (targetUrl?: string) => {
+		const urlToFetch = (targetUrl ?? fontUrl).trim()
+		if (!urlToFetch) return
 		setLoading(true)
 		setStatusMessage('Fetching font definition...')
 		try {
-			const fontDef = await fetchFontFromUrl(fontUrl)
-			saveFont(api.jsonStorage, fontDef, true)
+			const fontDef = await fetchFontFromUrl(urlToFetch)
+			await saveFont(api.jsonStorage, fontDef, true, storage)
 			setFontUrl('')
 			setStatusMessage(`✓ Installed and selected: ${fontDef.name}`)
 			Alert.alert(
@@ -81,8 +99,8 @@ export default function Settings({
 		}
 	}
 
-	const handleSelectFont = (fontName: string) => {
-		selectFont(api.jsonStorage, fontName)
+	const handleSelectFont = async (fontName: string) => {
+		await selectFont(api.jsonStorage, fontName, storage)
 		Alert.alert(
 			'Font Changed',
 			`Selected "${fontName}". Restart Discord to load this font into native memory.`,
@@ -93,8 +111,8 @@ export default function Settings({
 		)
 	}
 
-	const handleClearFont = () => {
-		selectFont(api.jsonStorage, null)
+	const handleClearFont = async () => {
+		await selectFont(api.jsonStorage, null, storage)
 		Alert.alert(
 			'Reset to Default Font',
 			'Reverted to Discord system font. Restart Discord to reload.',
@@ -105,54 +123,20 @@ export default function Settings({
 		)
 	}
 
-	const installedThemes = Object.values(storage.themes || {})
-	const installedFonts = Object.values(storage.fonts || {})
+	const installedThemes = Object.values(storage.themes)
+	const installedFonts = Object.values(storage.fonts)
 
 	return (
 		<ScrollView style={{ flex: 1, backgroundColor: '#1E1F22' }}>
-			{/* Top Tab Bar */}
-			<View
-				style={{
-					flexDirection: 'row',
-					backgroundColor: '#2B2D31',
-					padding: 6,
-					margin: 16,
-					borderRadius: 10,
-				}}
-			>
-				<TouchableOpacity
-					onPress={() => {
-						setActiveTab('themes')
-						setStatusMessage(null)
-					}}
-					style={{
-						flex: 1,
-						paddingVertical: 10,
-						backgroundColor: activeTab === 'themes' ? '#5865F2' : 'transparent',
-						borderRadius: 8,
-						alignItems: 'center',
-					}}
-				>
-					<Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>{'\uD83C\uDFA8'} Themes</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					onPress={() => {
-						setActiveTab('fonts')
-						setStatusMessage(null)
-					}}
-					style={{
-						flex: 1,
-						paddingVertical: 10,
-						backgroundColor: activeTab === 'fonts' ? '#5865F2' : 'transparent',
-						borderRadius: 8,
-						alignItems: 'center',
-					}}
-				>
-					<Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 }}>{'\uD83D\uDD24'} Fonts</Text>
-				</TouchableOpacity>
+			{/* Header */}
+			<View style={{ padding: 16, paddingBottom: 8 }}>
+				<Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>Themeify</Text>
+				<Text style={{ color: '#949BA4', fontSize: 14, marginTop: 4 }}>
+					Custom Discord themes and custom font packs on Revenge.
+				</Text>
 			</View>
 
-			{/* Status Feedback Banner */}
+			{/* Status Banner */}
 			{statusMessage && (
 				<View
 					style={{
@@ -163,9 +147,68 @@ export default function Settings({
 						backgroundColor: statusMessage.startsWith('✓') ? '#248046' : '#DA373C',
 					}}
 				>
-					<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>{statusMessage}</Text>
+					<Text style={{ color: '#FFFFFF', fontWeight: '600' }}>{statusMessage}</Text>
 				</View>
 			)}
+
+			{loading && (
+				<View style={{ padding: 12, alignItems: 'center' }}>
+					<ActivityIndicator size="small" color="#5865F2" />
+				</View>
+			)}
+
+			{/* Tab Switcher */}
+			<View
+				style={{
+					flexDirection: 'row',
+					marginHorizontal: 16,
+					marginBottom: 16,
+					backgroundColor: '#2B2D31',
+					borderRadius: 8,
+					padding: 4,
+				}}
+			>
+				<TouchableOpacity
+					onPress={() => setActiveTab('themes')}
+					style={{
+						flex: 1,
+						paddingVertical: 8,
+						alignItems: 'center',
+						borderRadius: 6,
+						backgroundColor: activeTab === 'themes' ? '#5865F2' : 'transparent',
+					}}
+				>
+					<Text
+						style={{
+							color: '#FFFFFF',
+							fontWeight: activeTab === 'themes' ? 'bold' : '600',
+							fontSize: 14,
+						}}
+					>
+						Themes ({installedThemes.length})
+					</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					onPress={() => setActiveTab('fonts')}
+					style={{
+						flex: 1,
+						paddingVertical: 8,
+						alignItems: 'center',
+						borderRadius: 6,
+						backgroundColor: activeTab === 'fonts' ? '#5865F2' : 'transparent',
+					}}
+				>
+					<Text
+						style={{
+							color: '#FFFFFF',
+							fontWeight: activeTab === 'fonts' ? 'bold' : '600',
+							fontSize: 14,
+						}}
+					>
+						Fonts ({installedFonts.length})
+					</Text>
+				</TouchableOpacity>
+			</View>
 
 			{activeTab === 'themes' ? (
 				<View style={{ paddingHorizontal: 16 }}>
@@ -177,58 +220,74 @@ export default function Settings({
 							borderRadius: 12,
 							marginBottom: 16,
 							borderLeftWidth: 4,
-							borderLeftColor: activeTheme ? '#5865F2' : '#80848E',
+							borderLeftColor: activeTheme ? '#248046' : '#80848E',
 						}}
 					>
 						<Text style={{ color: '#80848E', fontSize: 12, fontWeight: '700', textTransform: 'uppercase' }}>
 							Active Theme
 						</Text>
 						<Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', marginTop: 4 }}>
-							{activeTheme ? activeTheme.data.name : 'Stock Discord Theme'}
+							{activeTheme ? activeTheme.data.name : 'Default Discord Theme'}
 						</Text>
-						{activeTheme?.data.description && (
-							<Text style={{ color: '#DBDEE1', fontSize: 13, marginTop: 4 }}>
+						{activeTheme?.data?.description && (
+							<Text style={{ color: '#949BA4', fontSize: 13, marginTop: 4 }}>
 								{activeTheme.data.description}
 							</Text>
 						)}
 						{activeTheme && (
-							<View style={{ marginTop: 12 }}>
-								<Button
-									variant="danger"
-									text="Reset to Stock Theme"
-									onPress={() => selectTheme(api.jsonStorage, null)}
-								/>
+							<View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+								<TouchableOpacity
+									onPress={() => selectTheme(api.jsonStorage, null, storage)}
+									style={{
+										backgroundColor: '#4E5058',
+										paddingVertical: 6,
+										paddingHorizontal: 12,
+										borderRadius: 6,
+									}}
+								>
+									<Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>
+										Unload Theme
+									</Text>
+								</TouchableOpacity>
 							</View>
 						)}
 					</View>
 
-					{/* Install Theme Input */}
-					<TableRowGroup title="INSTALL THEME FROM URL">
+					{/* Install Theme From URL */}
+					<SectionGroup title="INSTALL THEME FROM URL">
 						<View style={{ padding: 12 }}>
 							<TextInput
-								placeholder="https://.../theme.json"
 								value={themeUrl}
 								onChangeText={setThemeUrl}
+								placeholder="https://... / theme.json"
+								placeholderTextColor="#80848E"
 								autoCapitalize="none"
 								autoCorrect={false}
+								style={{
+									backgroundColor: '#1E1F22',
+									color: '#FFFFFF',
+									paddingHorizontal: 12,
+									paddingVertical: 10,
+									borderRadius: 8,
+									fontSize: 14,
+									marginBottom: 12,
+								}}
 							/>
-							<View style={{ marginTop: 10 }}>
-								<Button
-									variant="primary"
-									text={loading ? 'Downloading...' : 'Install & Apply Theme'}
-									onPress={handleInstallTheme}
-								/>
-							</View>
+							<ActionButton
+								variant="primary"
+								text={loading ? 'Downloading...' : 'Install & Apply Theme'}
+								onPress={() => handleInstallTheme()}
+							/>
 						</View>
-					</TableRowGroup>
+					</SectionGroup>
 
 					{/* Quick Preset: Sakura */}
-					<View style={{ marginTop: 16, marginBottom: 8 }}>
-						<Button
+					<View style={{ marginBottom: 16 }}>
+						<ActionButton
 							variant="secondary"
-							text={'\uD83C\uDF38 Quick Install: Sakura Path Cat Theme'}
+							text={'\uD83C\uDF38 Quick Install & Apply: Sakura Path Cat Theme'}
 							onPress={() => {
-								setThemeUrl(
+								handleInstallTheme(
 									'https://raw.githubusercontent.com/0nlyrisk/Sakura-Path-Cat-Animated-Theme/main/Sakura%20%F0%9F%8C%B8%20Path%20Cat%20Animated%20Theme',
 								)
 							}}
@@ -236,113 +295,24 @@ export default function Settings({
 					</View>
 
 					{/* Installed Themes List */}
-					<TableRowGroup title={`INSTALLED THEMES (${installedThemes.length})`}>
+					<SectionGroup title={`INSTALLED THEMES (${installedThemes.length})`}>
 						{installedThemes.length === 0 ? (
 							<View style={{ padding: 16, alignItems: 'center' }}>
 								<Text style={{ color: '#80848E', fontSize: 14 }}>No custom themes installed yet.</Text>
 							</View>
 						) : (
-							installedThemes.map((theme) => {
-								const isSelected = theme.id === storage.selectedThemeId
-								const fontPack = extractFontFromTheme(theme.data)
-								return (
-									<View
-										key={theme.id}
-										style={{
-											padding: 14,
-											borderBottomWidth: 1,
-											borderBottomColor: '#35373C',
-										}}
-									>
-										<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-											<View style={{ flex: 1 }}>
-												<Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
-													{theme.data.name} {isSelected && '✓'}
-												</Text>
-												{theme.data.description && (
-													<Text style={{ color: '#949BA4', fontSize: 12, marginTop: 2 }}>
-														{theme.data.description}
-													</Text>
-												)}
-											</View>
-										</View>
-
-										<View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
-											{!isSelected ? (
-												<TouchableOpacity
-													onPress={() => selectTheme(api.jsonStorage, theme.id)}
-													style={{
-														backgroundColor: '#5865F2',
-														paddingVertical: 8,
-														paddingHorizontal: 16,
-														borderRadius: 6,
-													}}
-												>
-													<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-														Apply Live
-													</Text>
-												</TouchableOpacity>
-											) : (
-												<View
-													style={{
-														backgroundColor: '#248046',
-														paddingVertical: 8,
-														paddingHorizontal: 16,
-														borderRadius: 6,
-													}}
-												>
-													<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-														Active
-													</Text>
-												</View>
-											)}
-
-											{fontPack && (
-												<TouchableOpacity
-													onPress={() => {
-														saveFont(api.jsonStorage, fontPack, true)
-														Alert.alert(
-															'Font Pack Extracted',
-															`Extracted and selected "${fontPack.name}". Restart Discord to apply fonts.`,
-															[
-																{ text: 'Later', style: 'cancel' },
-																{ text: 'Restart Now', onPress: restartApp },
-															],
-														)
-													}}
-													style={{
-														backgroundColor: '#4E5058',
-														paddingVertical: 8,
-														paddingHorizontal: 12,
-														borderRadius: 6,
-													}}
-												>
-													<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-														Use Font Pack
-													</Text>
-												</TouchableOpacity>
-											)}
-
-											<TouchableOpacity
-												onPress={() => deleteTheme(api.jsonStorage, theme.id)}
-												style={{
-													backgroundColor: '#DA373C',
-													paddingVertical: 8,
-													paddingHorizontal: 12,
-													borderRadius: 6,
-													marginLeft: 'auto',
-												}}
-											>
-												<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-													Delete
-												</Text>
-											</TouchableOpacity>
-										</View>
-									</View>
-								)
-							})
+							installedThemes.map((theme) => (
+								<ThemeListItem
+									key={theme.id}
+									theme={theme}
+									isSelected={theme.id === storage.selectedThemeId}
+									storage={storage}
+									jsonStorage={api.jsonStorage}
+									restartApp={restartApp}
+								/>
+							))
 						)}
-					</TableRowGroup>
+					</SectionGroup>
 				</View>
 			) : (
 				<View style={{ paddingHorizontal: 16 }}>
@@ -363,155 +333,97 @@ export default function Settings({
 						<Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', marginTop: 4 }}>
 							{activeFont ? activeFont.name : 'System / Stock Discord Font'}
 						</Text>
-						{activeFont?.data.description && (
-							<Text style={{ color: '#DBDEE1', fontSize: 13, marginTop: 4 }}>
-								{activeFont.data.description}
-							</Text>
-						)}
-						<View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-							<TouchableOpacity
-								onPress={restartApp}
-								style={{
-									backgroundColor: '#5865F2',
-									paddingVertical: 8,
-									paddingHorizontal: 14,
-									borderRadius: 6,
-								}}
-							>
-								<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-									{'\uD83D\uDD04'} Restart Discord
-								</Text>
-							</TouchableOpacity>
-
-							{activeFont && (
+						{activeFont && (
+							<View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
 								<TouchableOpacity
 									onPress={handleClearFont}
 									style={{
-										backgroundColor: '#DA373C',
-										paddingVertical: 8,
-										paddingHorizontal: 14,
+										backgroundColor: '#4E5058',
+										paddingVertical: 6,
+										paddingHorizontal: 12,
 										borderRadius: 6,
 									}}
 								>
-									<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-										Reset Font
+									<Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>
+										Revert to Default
 									</Text>
 								</TouchableOpacity>
-							)}
-						</View>
+							</View>
+						)}
 					</View>
 
-					{/* Install Font Input */}
-					<TableRowGroup title="INSTALL FONT PACK FROM URL">
+					{/* Install Font From URL */}
+					<SectionGroup title="INSTALL FONT PACK FROM URL">
 						<View style={{ padding: 12 }}>
 							<TextInput
-								placeholder="https://.../font.json"
 								value={fontUrl}
 								onChangeText={setFontUrl}
+								placeholder="https://... / font.json"
+								placeholderTextColor="#80848E"
 								autoCapitalize="none"
 								autoCorrect={false}
+								style={{
+									backgroundColor: '#1E1F22',
+									color: '#FFFFFF',
+									paddingHorizontal: 12,
+									paddingVertical: 10,
+									borderRadius: 8,
+									fontSize: 14,
+									marginBottom: 12,
+								}}
 							/>
-							<View style={{ marginTop: 10 }}>
-								<Button
-									variant="primary"
-									text={loading ? 'Downloading Font Pack...' : 'Install & Apply Font'}
-									onPress={handleInstallFont}
-								/>
-							</View>
+							<ActionButton
+								variant="primary"
+								text={loading ? 'Downloading Font Pack...' : 'Install & Apply Font'}
+								onPress={() => handleInstallFont()}
+							/>
 						</View>
-					</TableRowGroup>
+					</SectionGroup>
 
 					{/* Quick Font Presets */}
-					<View style={{ marginTop: 16, marginBottom: 8 }}>
-						<Button
+					<View style={{ marginBottom: 16, gap: 8 }}>
+						<ActionButton
 							variant="secondary"
-							text={'\uD83D\uDD24 Preset: Discord Default Fonts (Vanilla Gist)'}
+							text={'\uD83D\uDD24 Preset: Google Sans'}
 							onPress={() => {
-								setFontUrl('https://gist.github.com/Davr1/63e459c59410caa3b34d20874bfec667/raw/font.json')
+								handleInstallFont('https://raw.githubusercontent.com/MarGar12/fontjson/main/jsons/GoogleSans-font.json')
+							}}
+						/>
+						<ActionButton
+							variant="secondary"
+							text={'\uD83D\uDD24 Preset: Minecraft Tweaked'}
+							onPress={() => {
+								handleInstallFont('https://discordfonts-silly.nekoweb.org/MinecraftTweakedFont/MinecraftTweaked.json')
+							}}
+						/>
+						<ActionButton
+							variant="secondary"
+							text={'\uD83D\uDD24 Preset: SF Pro'}
+							onPress={() => {
+								handleInstallFont('https://raw.githubusercontent.com/MarGar12/fontjson/main/jsons/SFPro-font.json')
 							}}
 						/>
 					</View>
 
 					{/* Installed Fonts List */}
-					<TableRowGroup title={`INSTALLED FONTS (${installedFonts.length})`}>
+					<SectionGroup title={`INSTALLED FONTS (${installedFonts.length})`}>
 						{installedFonts.length === 0 ? (
 							<View style={{ padding: 16, alignItems: 'center' }}>
 								<Text style={{ color: '#80848E', fontSize: 14 }}>No custom font packs installed yet.</Text>
 							</View>
 						) : (
-							installedFonts.map((font) => {
-								const isSelected = font.name === storage.selectedFontName
-								const weightCount = Object.keys(font.data.main || {}).length
-								return (
-									<View
-										key={font.name}
-										style={{
-											padding: 14,
-											borderBottomWidth: 1,
-											borderBottomColor: '#35373C',
-										}}
-									>
-										<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-											<View style={{ flex: 1 }}>
-												<Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
-													{font.name} {isSelected && '✓'}
-												</Text>
-												<Text style={{ color: '#949BA4', fontSize: 12, marginTop: 2 }}>
-													{weightCount} weights/styles (ggsans, mono, etc.)
-												</Text>
-											</View>
-										</View>
-
-										<View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
-											{!isSelected ? (
-												<TouchableOpacity
-													onPress={() => handleSelectFont(font.name)}
-													style={{
-														backgroundColor: '#5865F2',
-														paddingVertical: 8,
-														paddingHorizontal: 16,
-														borderRadius: 6,
-													}}
-												>
-													<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-														Select & Restart
-													</Text>
-												</TouchableOpacity>
-											) : (
-												<View
-													style={{
-														backgroundColor: '#248046',
-														paddingVertical: 8,
-														paddingHorizontal: 16,
-														borderRadius: 6,
-													}}
-												>
-													<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-														Active
-													</Text>
-												</View>
-											)}
-
-											<TouchableOpacity
-												onPress={() => deleteFont(api.jsonStorage, font.name)}
-												style={{
-													backgroundColor: '#DA373C',
-													paddingVertical: 8,
-													paddingHorizontal: 12,
-													borderRadius: 6,
-													marginLeft: 'auto',
-												}}
-											>
-												<Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>
-													Delete
-												</Text>
-											</TouchableOpacity>
-										</View>
-									</View>
-								)
-							})
+							installedFonts.map((font) => (
+								<FontListItem
+									key={font.name}
+									font={font}
+									isSelected={font.name === storage.selectedFontName}
+									storage={storage}
+									jsonStorage={api.jsonStorage}
+									onSelectFont={handleSelectFont}
+								/>
+							))
 						)}
-					</TableRowGroup>
+					</SectionGroup>
 				</View>
 			)}
 

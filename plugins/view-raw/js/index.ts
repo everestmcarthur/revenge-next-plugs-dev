@@ -1,21 +1,17 @@
 import React from 'react'
-import { discordModules } from '../../shared/discord-modules'
 import RawPage from './ui/RawPage'
 import Settings from './ui/Settings'
+import { findByImportedPath } from '../../shared/finders'
 
 export default plugin({
 	start(api) {
 		const cleanups: Array<() => void> = []
 
 		const getLazyActionSheet = () => {
-			try {
-				const mod = revenge.modules.metro.getInitializedModuleExports(
-					discordModules['modules/action_sheet/native/ActionSheetActionCreators.tsx'],
-				)
-				if (mod?.openLazy || mod?.default?.openLazy) {
-					return mod.default?.openLazy ? mod.default : mod
-				}
-			} catch {}
+			const imported = findByImportedPath('modules/action_sheet/native/ActionSheetActionCreators.tsx')
+			if (imported?.openLazy || imported?.default?.openLazy) {
+				return imported.default?.openLazy ? imported.default : imported
+			}
 			const { filters, lookupModule } = revenge.modules.finders
 			const matches = lookupModule(
 				filters.withProps('openLazy', 'hideActionSheet'),
@@ -25,6 +21,10 @@ export default plugin({
 		}
 
 		const getNavigation = () => {
+			const imported = findByImportedPath('actions/ModalActionCreators.tsx')
+			if (imported?.push || imported?.default?.push) {
+				return imported.default?.push ? imported.default : imported
+			}
 			const { filters, lookupModule } = revenge.modules.finders
 			const matches = lookupModule(
 				filters.withProps('push', 'pop', 'pushLazy'),
@@ -34,12 +34,9 @@ export default plugin({
 		}
 
 		const getNavigator = () => {
-			try {
-				const mod = revenge.modules.metro.getInitializedModuleExports(
-					discordModules['design/components/Navigator/native/Navigator.native.tsx'],
-				)
-				if (mod?.Navigator) return mod.Navigator
-			} catch {}
+			const imported = findByImportedPath('design/components/Navigator/native/Navigator.native.tsx')
+			if (imported?.Navigator) return imported.Navigator
+			if (imported?.default?.Navigator) return imported.default.Navigator
 			const { filters, lookupModule } = revenge.modules.finders
 			const matches = lookupModule(filters.withProps('Navigator'))
 			const m = Array.isArray(matches) ? matches[0] : matches
@@ -47,12 +44,9 @@ export default plugin({
 		}
 
 		const getModalCloseButton = () => {
-			try {
-				const mod = revenge.modules.metro.getInitializedModuleExports(
-					discordModules['design/components/Navigator/native/NavigatorHeader.native.tsx'],
-				)
-				if (mod?.getHeaderCloseButton) return mod.getHeaderCloseButton
-			} catch {}
+			const imported = findByImportedPath('design/components/Navigator/native/NavigatorHeader.native.tsx')
+			if (imported?.getHeaderCloseButton) return imported.getHeaderCloseButton
+			if (imported?.default?.getHeaderCloseButton) return imported.default.getHeaderCloseButton
 			const { filters, lookupModule } = revenge.modules.finders
 			const matches =
 				lookupModule(filters.withProps('getHeaderCloseButton')) ||

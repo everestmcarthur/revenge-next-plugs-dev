@@ -1,4 +1,4 @@
-import { discordModules } from '@shared'
+import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import type { BetterInboxStorage } from '../lib/types'
 import NotificationCenter from '../ui/NotificationCenter'
@@ -214,66 +214,32 @@ export default function patchYouBarButton(
 		}
 	}
 
-	const req = (globalThis as any).__r
-	if (typeof req === 'function') {
-		const notifId = discordModules['modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx']
-		const candidates = new Set<number>([
-			...(typeof notifId === 'number' ? [notifId] : []),
-			16488,
-			16464,
-			16476,
-			16427,
-		])
-
-		for (const id of candidates) {
-			try {
-				const mod = req(id)
-				if (isYouBarNotificationsButton(mod)) {
-					applyPatch(mod)
-				}
-			} catch {}
-		}
-
-		if (patchedButtonTargets.size === 0) {
-			const base = typeof notifId === 'number' ? notifId : 16488
-			for (let id = base - 60; id <= base + 100; id++) {
-				try {
-					const mod = req(id)
-					if (isYouBarNotificationsButton(mod)) {
-						applyPatch(mod)
-						break
-					}
-				} catch {}
-			}
-		}
-	}
-
 	try {
-		const compFilter = revenge.modules.finders.filters.createFilterGenerator(
-			([name]: [string], m: any) => {
-				const def = m?.default
-				return (
-					m?.name === name ||
-					m?.displayName === name ||
-					m?.type?.name === name ||
-					m?.type?.displayName === name ||
-					def?.name === name ||
-					def?.displayName === name ||
-					def?.type?.name === name ||
-					def?.type?.displayName === name
-				)
-			},
-			([name]: [string]) => `componentName(${name})`,
-			revenge.modules.finders.filters.FilterScopes.All,
-		)('YouBarNotificationsButton')
+		const imported = findByImportedPath(
+			'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx',
+		)
+		if (imported) applyPatch(imported)
 
-		const matches = revenge.modules.finders.lookupModule(compFilter)
+		const unsubPath = waitForImportedPath(
+			'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx',
+			(m) => {
+				if (m) applyPatch(m)
+			},
+		)
+		if (unsubPath) cleanups.push(unsubPath)
+
+		const compFilter = Object.assign(
+			(_id: any, m: any) => isYouBarNotificationsButton(m),
+			{ key: 'name(YouBarNotificationsButton)', scopes: 4 },
+		)
+
+		const matches = revenge.modules.finders.lookupModule(compFilter as any)
 		if (matches && matches !== revenge.modules.finders.NotFoundResult && matches[0]) {
 			applyPatch(matches[0])
 		}
 
 		const unsubFinders = revenge.modules.finders.getModules(
-			compFilter,
+			compFilter as any,
 			(m: any) => applyPatch(m),
 			{ cached: true, returnNamespace: true },
 		)

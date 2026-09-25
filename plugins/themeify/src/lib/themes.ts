@@ -27,14 +27,16 @@ export async function fetchThemeFromUrl(url: string): Promise<ThemeData> {
 	return validateTheme(targetData)
 }
 
-export function saveTheme(
+export async function saveTheme(
 	storageApi: any,
 	id: string,
 	data: ThemeData,
 	select = false,
-): InstalledTheme {
+	currentStorage?: ThemeifyStorage,
+): Promise<InstalledTheme> {
 	const validated = validateTheme(data)
-	const cache = { ...(storageApi.cache ?? {}) } as ThemeifyStorage
+	const current = currentStorage ?? (await storageApi.get()) ?? {}
+	const cache: ThemeifyStorage = { ...current }
 	const themes = { ...(cache.themes ?? {}) }
 
 	const installed: InstalledTheme = {
@@ -53,12 +55,17 @@ export function saveTheme(
 		writeCurrentThemeToNative(installed)
 	}
 
-	storageApi.set(cache)
+	await storageApi.set(cache)
 	return installed
 }
 
-export function selectTheme(storageApi: any, id: string | null): void {
-	const cache = { ...(storageApi.cache ?? {}) } as ThemeifyStorage
+export async function selectTheme(
+	storageApi: any,
+	id: string | null,
+	currentStorage?: ThemeifyStorage,
+): Promise<void> {
+	const current = currentStorage ?? (await storageApi.get()) ?? {}
+	const cache: ThemeifyStorage = { ...current }
 	cache.selectedThemeId = id
 
 	const themes = { ...(cache.themes ?? {}) }
@@ -78,11 +85,16 @@ export function selectTheme(storageApi: any, id: string | null): void {
 		writeCurrentThemeToNative(null)
 	}
 
-	storageApi.set(cache)
+	await storageApi.set(cache)
 }
 
-export function deleteTheme(storageApi: any, id: string): void {
-	const cache = { ...(storageApi.cache ?? {}) } as ThemeifyStorage
+export async function deleteTheme(
+	storageApi: any,
+	id: string,
+	currentStorage?: ThemeifyStorage,
+): Promise<void> {
+	const current = currentStorage ?? (await storageApi.get()) ?? {}
+	const cache: ThemeifyStorage = { ...current }
 	const themes = { ...(cache.themes ?? {}) }
 
 	const wasSelected = cache.selectedThemeId === id
@@ -95,7 +107,7 @@ export function deleteTheme(storageApi: any, id: string): void {
 		writeCurrentThemeToNative(null)
 	}
 
-	storageApi.set(cache)
+	await storageApi.set(cache)
 }
 
 export function extractFontFromTheme(theme: ThemeData): FontDefinition | null {

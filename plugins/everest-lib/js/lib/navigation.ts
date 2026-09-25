@@ -14,16 +14,15 @@ const transitionRouterModule = createModuleGetter<any>(
 	'transitionRouter',
 )
 
-const userSettingsFilter = revenge.modules.finders.filters.createFilterGenerator(
-	(_args, _id, exp: any) => {
+const userSettingsFilter = Object.assign(
+	(_id: any, exp: any) => {
 		const t = exp?.default ?? exp
 		if (!t || typeof t !== 'object') return false
 		if (t.$$baseObject || t.$$loader || t.messages || t.defaultLocale) return false
 		return typeof t.openUserSettings === 'function'
 	},
-	() => 'everest.userSettings',
-	revenge.modules.finders.filters.FilterScopes.All,
-)()
+	{ key: 'everest.userSettings', scopes: 4 },
+)
 
 const userSettingsModule = createModuleGetter<any>(
 	userSettingsFilter,
@@ -91,6 +90,16 @@ export function transitionToGuild(
 ): void {
 	const pluginId = getActivePluginId()
 	try {
+		const direct = (revenge.discord?.utils as any)?.modules?.finders?.lookupModuleWithImportedPath?.(
+			'modules/routing/router_utils.tsx',
+		)?.[0]
+		const targetRouter = direct?.default ?? direct
+		if (typeof targetRouter?.transitionToGuild === 'function') {
+			targetRouter.transitionToGuild(guildId, channelId, messageId)
+			logUsage(pluginId, 'navigation', 'nav:transitionToGuild', `${guildId}/${channelId ?? ''}`, true)
+			return
+		}
+
 		const router = transitionRouterModule()
 		if (typeof router?.transitionToGuild === 'function') {
 			router.transitionToGuild(guildId, channelId, messageId)
@@ -115,22 +124,22 @@ export function openUserSettings(section?: string): void {
 	const pluginId = getActivePluginId()
 	const targetSection = typeof section === 'string' ? section : 'Overview'
 	try {
-		// 1. Direct Metro require / known module ID check for instant cold boot
-		if (typeof (globalThis as any).__r === 'function') {
-			try {
-				const direct = (globalThis as any).__r(6213)
-				const target = direct?.default ?? direct
-				if (
-					typeof target?.openUserSettings === 'function' &&
-					!target.$$baseObject &&
-					!target.$$loader
-				) {
-					target.openUserSettings(targetSection)
-					logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
-					return
-				}
-			} catch {}
-		}
+		// 1. Direct decord imported path check
+		try {
+			const direct = (revenge.discord?.utils as any)?.modules?.finders?.lookupModuleWithImportedPath?.(
+				'modules/user_settings/core/native/openUserSettings.tsx',
+			)?.[0]
+			const target = direct?.default ?? direct
+			if (
+				typeof target?.openUserSettings === 'function' &&
+				!target.$$baseObject &&
+				!target.$$loader
+			) {
+				target.openUserSettings(targetSection)
+				logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
+				return
+			}
+		} catch {}
 
 		// 2. Cached getter module
 		const mod = userSettingsModule()
@@ -143,13 +152,11 @@ export function openUserSettings(section?: string): void {
 		// 3. Dynamic lookupModule scan
 		const { lookupModule } = revenge.modules.finders
 		const matches = lookupModule(userSettingsFilter)
-		for (const m of matches || []) {
-			const target = m?.default ?? m
-			if (typeof target?.openUserSettings === 'function') {
-				target.openUserSettings(targetSection)
-				logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
-				return
-			}
+		const target = matches?.[0]?.default ?? matches?.[0]
+		if (typeof target?.openUserSettings === 'function') {
+			target.openUserSettings(targetSection)
+			logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, true)
+			return
 		}
 		logUsage(pluginId, 'navigation', 'nav:openUserSettings', targetSection, false, 'Action not found')
 	} catch (e) {

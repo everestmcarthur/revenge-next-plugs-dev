@@ -1,6 +1,6 @@
-import { discordModules } from '@shared'
+import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
 import type { JsonStorage } from '@revenge-mod/json-storage'
-import { saveCachedModuleId, type YouBarPlusStorage } from '../lib/types'
+import { type YouBarPlusStorage } from '../lib/types'
 
 let cachedFastListInstance: any = null
 
@@ -22,12 +22,13 @@ export default function patchHideBuiltinDm(
 		return s?.showDMButton !== false && s?.hideBuiltinDM !== false
 	}
 
-	const req = (globalThis as any).__r
-	if (typeof req !== 'function') return () => {}
-
 	// 1. Patch FastList prototype to capture GuildsBar FastList and ensure sections[0] = 0
 	try {
-		const fastListMod = req(7175)
+		const fastListMod =
+			findByImportedPath('lib/native/FastList.tsx') ??
+			revenge.modules.finders.lookupModule(
+				revenge.modules.finders.filters.withProps('FastList'),
+			)?.[0]
 		const FL = fastListMod?.default ?? fastListMod
 		if (FL?.prototype?.render) {
 			const origRender = FL.prototype.render
@@ -69,8 +70,8 @@ export default function patchHideBuiltinDm(
 		console.error('[YouBar+] Error patching FastList prototype:', e)
 	}
 
-	// 2. Patch GuildsBarMessages component (16403)
-	const patchGuildsBarMessages = (mod: any, id?: number) => {
+	// 2. Patch GuildsBarMessages component
+	const patchGuildsBarMessages = (mod: any) => {
 		const target = mod?.default ?? mod
 		if (!target) return
 		const key = typeof target === 'function' ? undefined : 'type'
@@ -86,26 +87,26 @@ export default function patchHideBuiltinDm(
 				},
 			)
 			cleanups.push(unpatch)
-			if (typeof id === 'number' && storage) {
-				saveCachedModuleId(storage, 'guildsBarMessagesId' as any, id)
-			}
 		} catch (e) {
 			console.error('[YouBar+] Error patching GuildsBarMessages:', e)
 		}
 	}
 
-	const messagesId =
-		storage.cache?.moduleCache?.guildsBarMessagesId ??
-		discordModules['modules/guilds_bar/native/GuildsBarMessages.tsx'] ??
-		16403
-
 	try {
-		const mod = req(messagesId)
-		if (mod) patchGuildsBarMessages(mod, messagesId)
+		const mod = findByImportedPath('modules/guilds_bar/native/GuildsBarMessages.tsx')
+		if (mod) patchGuildsBarMessages(mod)
+
+		const unsub = waitForImportedPath(
+			'modules/guilds_bar/native/GuildsBarMessages.tsx',
+			(m) => {
+				if (m) patchGuildsBarMessages(m)
+			},
+		)
+		if (unsub) cleanups.push(unsub)
 	} catch {}
 
-	// 3. Patch useGuildsBarProps hook (16387)
-	const patchUseGuildsBarProps = (mod: any, id?: number) => {
+	// 3. Patch useGuildsBarProps hook
+	const patchUseGuildsBarProps = (mod: any) => {
 		if (!mod) return
 		const target = mod
 		const key = 'default'
@@ -151,26 +152,26 @@ export default function patchHideBuiltinDm(
 				},
 			)
 			cleanups.push(unpatch)
-			if (typeof id === 'number' && storage) {
-				saveCachedModuleId(storage, 'useGuildsBarPropsId' as any, id)
-			}
 		} catch (e) {
 			console.error('[YouBar+] Error patching useGuildsBarProps:', e)
 		}
 	}
 
-	const propsId =
-		storage.cache?.moduleCache?.useGuildsBarPropsId ??
-		discordModules['modules/guilds_bar/native/hooks/useGuildsBarProps.tsx'] ??
-		16387
-
 	try {
-		const mod = req(propsId)
-		if (mod) patchUseGuildsBarProps(mod, propsId)
+		const mod = findByImportedPath('modules/guilds_bar/native/hooks/useGuildsBarProps.tsx')
+		if (mod) patchUseGuildsBarProps(mod)
+
+		const unsub = waitForImportedPath(
+			'modules/guilds_bar/native/hooks/useGuildsBarProps.tsx',
+			(m) => {
+				if (m) patchUseGuildsBarProps(m)
+			},
+		)
+		if (unsub) cleanups.push(unsub)
 	} catch {}
 
-	// 4. Patch GuildsBar component (16378)
-	const patchGuildsBar = (mod: any, id?: number) => {
+	// 4. Patch GuildsBar component
+	const patchGuildsBar = (mod: any) => {
 		const target = mod?.default ?? mod
 		if (!target) return
 		const key = typeof target === 'function' ? undefined : 'type'
@@ -211,22 +212,22 @@ export default function patchHideBuiltinDm(
 				},
 			)
 			cleanups.push(unpatch)
-			if (typeof id === 'number' && storage) {
-				saveCachedModuleId(storage, 'guildsBarId' as any, id)
-			}
 		} catch (e) {
 			console.error('[YouBar+] Error patching GuildsBar:', e)
 		}
 	}
 
-	const guildsBarId =
-		storage.cache?.moduleCache?.guildsBarId ??
-		discordModules['modules/guilds_bar/native/GuildsBar.tsx'] ??
-		16378
-
 	try {
-		const mod = req(guildsBarId)
-		if (mod) patchGuildsBar(mod, guildsBarId)
+		const mod = findByImportedPath('modules/guilds_bar/native/GuildsBar.tsx')
+		if (mod) patchGuildsBar(mod)
+
+		const unsub = waitForImportedPath(
+			'modules/guilds_bar/native/GuildsBar.tsx',
+			(m) => {
+				if (m) patchGuildsBar(m)
+			},
+		)
+		if (unsub) cleanups.push(unsub)
 	} catch {}
 
 	return () => {

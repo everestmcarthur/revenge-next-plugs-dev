@@ -20,9 +20,9 @@ export default plugin<{ jsonStorage: ThemeifyStorage }>({
 		const loaderCleanup = initLoader(jsonStorage)
 		cleanup(loaderCleanup)
 
-		const syncToNative = () => {
+		const syncToNative = (data?: ThemeifyStorage) => {
 			try {
-				const cache = jsonStorage.cache ?? {}
+				const cache = data ?? {}
 				if (cache.selectedThemeId && cache.themes?.[cache.selectedThemeId]) {
 					writeCurrentThemeToNative(cache.themes[cache.selectedThemeId])
 				}
@@ -34,10 +34,8 @@ export default plugin<{ jsonStorage: ThemeifyStorage }>({
 			}
 		}
 
-		if (jsonStorage.loaded) {
-			syncToNative()
-		} else if (typeof jsonStorage.get === 'function') {
-			jsonStorage.get().then(syncToNative).catch(() => {})
+		if (typeof jsonStorage.get === 'function') {
+			jsonStorage.get().then((data) => syncToNative(data)).catch(() => {})
 		}
 	},
 
