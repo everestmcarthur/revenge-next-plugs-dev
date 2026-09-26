@@ -1,4 +1,3 @@
-import { definePlugin } from '@revenge-mod/plugins/definePlugin'
 import { setupHooks } from './hooks'
 import { registerBuiltinCommands } from './builtins'
 import {
@@ -13,50 +12,40 @@ const clientUtilsApi = {
 	unregisterCommand,
 	commands,
 	syncIndexStore,
-	version: '1.0.23',
+	version: '1.0.25',
 }
 
-export default definePlugin({
-	manifest: {
-		id: 'dev.everestmcarthur.client-utils',
-		name: 'Client Utils',
-		description: 'Custom client-side slash command engine and utilities.',
-		version: '1.0.23',
-		author: 'Rosie',
-		icon: 'ic_message_edit',
-	} as any,
+export default plugin({
+	start(api) {
+		api.logger.info('[ClientUtils] Initializing modular slash command engine...')
 
-	onStart({ cleanup, logger }) {
-		logger.info('[ClientUtils] Initializing modular slash command engine...')
-
-		setupHooks({ cleanup, logger })
+		setupHooks({ cleanup: api.cleanup, logger: api.logger })
 		registerBuiltinCommands()
 
-		const everest = (globalThis as any).revenge?.everest
-		if (everest?.registerPlugin) {
-			try {
-				everest.registerPlugin({
-					id: 'dev.everestmcarthur.client-utils',
-					name: 'Client Utils',
-					icon: 'HammerIcon',
-					author: 'Rosie',
-					description: 'Custom client-side slash command engine and built-in Discord utilities.',
-					version: { nums: [1, 0, 0], label: null },
-				})
-			} catch {}
-		}
+		const everest = (globalThis as any).__everest ?? (globalThis as any).revenge?.everest
+		everest?.setActivePlugin?.(api.plugin.manifest.id)
+		everest?.registerPlugin?.({
+			id: api.plugin.manifest.id,
+			name: api.plugin.manifest.name,
+			icon: api.plugin.manifest.icon,
+			author: api.plugin.manifest.author,
+			description: api.plugin.manifest.description,
+			version: api.plugin.manifest.version,
+			getStatus: () => api.plugin.status,
+			getErrors: () => api.plugin.errors,
+		})
 
 		;(globalThis as any).__c_utils = clientUtilsApi
 		if (typeof (revenge?.plugins as any) !== 'undefined') {
 			;(revenge.plugins as any).clientUtils = clientUtilsApi
 		}
 
-		cleanup(() => {
+		api.cleanup(() => {
 			delete (globalThis as any).__c_utils
 			if ((revenge?.plugins as any)?.clientUtils) {
 				delete (revenge.plugins as any).clientUtils
 			}
-			logger.info('[ClientUtils] Stopped cleanly.')
+			api.logger.info('[ClientUtils] Stopped cleanly.')
 		})
 	},
 })
