@@ -1,6 +1,5 @@
 import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
-import type { JsonStorage } from '@revenge-mod/json-storage'
-import { type YouBarPlusStorage } from '../lib/types'
+import { DEFAULT_STORAGE, type YouBarPlusStorage } from '../lib/types'
 import { getYouBarStorage } from '../lib/storage'
 
 let updateCallbacks: Array<() => void> = []
