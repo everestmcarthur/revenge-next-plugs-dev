@@ -311,75 +311,97 @@ export default plugin({
 		}
 
 		// Register Client Utils slash command if present
-		try {
-			const clientUtils =
-				(revenge as any)?.plugins?.clientUtils ??
-				(globalThis as any).__c_utils
-			if (clientUtils?.registerCommand) {
-				clientUtils.registerCommand(
-					{
-						name: 'viewraw',
-						displayName: 'viewraw',
-						description: 'Inspect raw Discord JSON payload of a message',
-						options: [
-							{
-								type: 3, // String
-								name: 'message_id',
-								displayName: 'message_id',
-								description: 'ID of the message to inspect (defaults to last message)',
-								required: false,
-							},
-						],
-						execute: async (args: any, ctx: any) => {
-							const { filters, lookupModule } = revenge.modules.finders
-							const msgStoreMod = lookupModule(
-								filters.withProps('getMessages', 'getMessage'),
-							)
-							const msgStore = Array.isArray(msgStoreMod)
-								? msgStoreMod[0]
-								: msgStoreMod
-
-							let targetMsg: any
-							if (args?.message_id) {
-								targetMsg = msgStore?.getMessage?.(
-									ctx.channelId,
-									args.message_id,
+		const registerViewRawCommand = () => {
+			try {
+				const clientUtils =
+					(revenge as any)?.plugins?.clientUtils ??
+					(globalThis as any).__c_utils
+				if (clientUtils?.registerCommand) {
+					clientUtils.registerCommand(
+						{
+							name: 'viewraw',
+							displayName: 'viewraw',
+							description: 'Inspect raw Discord JSON payload of a message',
+							options: [
+								{
+									type: 3, // String
+									name: 'message_id',
+									displayName: 'message_id',
+									description: 'ID of the message to inspect (defaults to last message)',
+									required: false,
+								},
+							],
+							execute: async (args: any, ctx: any) => {
+								const { filters, lookupModule } = revenge.modules.finders
+								const msgStoreMod = lookupModule(
+									filters.withProps('getMessages', 'getMessage'),
 								)
-							} else {
-								const channelMessages = msgStore
-									?.getMessages?.(ctx.channelId)
-									?.toArray?.()
-								targetMsg = channelMessages?.[channelMessages.length - 1]
-							}
+								const msgStore = Array.isArray(msgStoreMod)
+									? msgStoreMod[0]
+									: msgStoreMod
 
-							if (!targetMsg) {
-								return ctx.reply({
+								let targetMsg: any
+								if (args?.message_id) {
+									targetMsg = msgStore?.getMessage?.(
+										ctx.channelId,
+										args.message_id,
+									)
+								} else {
+									const channelMessages = msgStore
+										?.getMessages?.(ctx.channelId)
+										?.toArray?.()
+									targetMsg = channelMessages?.[channelMessages.length - 1]
+								}
+
+								if (!targetMsg) {
+									return ctx.reply({
+										ephemeral: true,
+										content:
+											'❌ Could not locate message in current channel cache.',
+									})
+								}
+
+								openRawPage(targetMsg)
+								ctx.reply({
 									ephemeral: true,
-									content:
-										'❌ Could not locate message in current channel cache.',
+									content: `🔍 Opened raw inspector for message \`${targetMsg.id}\`.`,
 								})
-							}
-
-							openRawPage(targetMsg)
-							ctx.reply({
-								ephemeral: true,
-								content: `🔍 Opened raw inspector for message \`${targetMsg.id}\`.`,
-							})
+							},
 						},
-					},
-					{
-						id: 'dev.everestmcarthur.view-raw',
-						name: 'ViewRaw',
-						description: 'Raw Discord message payload inspector',
-					},
-				)
-
-				cleanups.push(() => {
-					clientUtils.unregisterCommand('viewraw')
-				})
+						{
+							id: 'dev.everestmcarthur.view-raw',
+							name: 'ViewRaw',
+							description: 'Raw Discord message payload inspector',
+						},
+					)
+					return true
+				}
+			} catch (err) {
+				api.logger.warn(`[ViewRaw] Could not register slash command: ${err}`)
 			}
-		} catch (err) {
-			api.logger.warn(`[ViewRaw] Could not register slash command: ${err}`)
+			return false
+		}
+
+		if (!registerViewRawCommand()) {
+			const interval = setInterval(() => {
+				if (registerViewRawCommand()) {
+					clearInterval(interval)
+				}
+			}, 1000)
+			cleanups.push(() => {
+				clearInterval(interval)
+				const clientUtils =
+					(revenge as any)?.plugins?.clientUtils ??
+					(globalThis as any).__c_utils
+				clientUtils?.unregisterCommand?.('viewraw')
+			})
+		} else {
+			cleanups.push(() => {
+				const clientUtils =
+					(revenge as any)?.plugins?.clientUtils ??
+					(globalThis as any).__c_utils
+				clientUtils?.unregisterCommand?.('viewraw')
+			})
 		}
 
 		api.cleanup(() => {
