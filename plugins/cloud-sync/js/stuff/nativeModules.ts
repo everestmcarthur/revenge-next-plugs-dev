@@ -29,9 +29,3 @@ export const DocumentsNew = findByProps('pick', 'saveDocuments')
 
 export const WebView = find((x: any) => x?.WebView && !x.default)?.WebView
 export const Svg = findByProps('SvgXml')
-
-export const zustand = (findByProps('create', 'useStore') || {
-	create: findByName('create'),
-}) as any
-
-export const zustandMW = findByProps('createJSONStorage', 'persist') as any

@@ -139,16 +139,10 @@ export function onUnload() {
 export const settings = Settings
 
 // Revenge Next plugin API export
-export default typeof plugin !== 'undefined'
-	? plugin({
-			start(api: any) {
-				onLoad()
-				api?.cleanup?.(() => onUnload())
-			},
-			SettingsComponent: Settings,
-		})
-	: {
-			onLoad,
-			onUnload,
-			settings: Settings,
-		}
+export default plugin({
+	start(api: any) {
+		onLoad()
+		api?.cleanup?.(() => onUnload())
+	},
+	SettingsComponent: Settings,
+})
