@@ -3,6 +3,10 @@ import {
 	getCurrentUserSafe,
 	getInitialsAvatar,
 } from './stores'
+import {
+	registerBuiltInCommand,
+	unregisterBuiltInCommand,
+} from './builtInRegistry'
 
 export const commands = new Map<string, any>()
 
@@ -271,10 +275,12 @@ export const registerCommand = (cmd: any, pluginMeta?: any) => {
 				}
 	cmd._pluginMeta = parsedMeta
 	commands.set(cmd.name, cmd)
+	registerBuiltInCommand(cmd)
 	syncIndexStore()
 }
 
 export const unregisterCommand = (name: string) => {
 	commands.delete(name)
+	unregisterBuiltInCommand(name)
 	syncIndexStore()
 }
