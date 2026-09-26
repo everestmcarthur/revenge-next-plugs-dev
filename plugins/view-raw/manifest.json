@@ -5,7 +5,7 @@
 	"description": "View a message's raw JSON data - searchable, syntax-highlighted, and copyable with one tap.",
 	"author": "Rosie",
 	"icon": "CodeIcon",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
