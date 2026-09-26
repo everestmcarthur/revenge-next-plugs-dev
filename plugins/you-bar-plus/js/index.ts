@@ -1,9 +1,9 @@
 import patchYouBarButtons, { requestYouBarUpdate } from './patches/youBarButtons'
-import patchCompactYou, { syncConstants } from './patches/compactYou'
+import patchCompactYou from './patches/compactYou'
 import patchHideBuiltinDm, { requestGuildsBarUpdate } from './patches/hideBuiltinDm'
 import Settings from './ui/Settings'
 import { DEFAULT_STORAGE, type YouBarPlusStorage } from './lib/types'
-import { initStorage } from './lib/storage'
+import { initStorage, setYouBarStorage } from './lib/storage'
 
 export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 	jsonStorage: {
@@ -33,8 +33,10 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 			getErrors: () => api.plugin.errors,
 		})
 
-		void api.jsonStorage.get().then(() => {
-			syncConstants()
+		void api.jsonStorage.get().then((val) => {
+			if (val) {
+				setYouBarStorage(val)
+			}
 			requestYouBarUpdate()
 			requestGuildsBarUpdate()
 		})

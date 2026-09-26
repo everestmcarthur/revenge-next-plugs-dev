@@ -3,38 +3,27 @@ import { DEFAULT_STORAGE, type YouBarPlusStorage } from './types'
 
 let activeStorageInstance: JsonStorage<YouBarPlusStorage> | null = null
 let memoryStorage: YouBarPlusStorage = { ...DEFAULT_STORAGE }
+let initialized = false
 
 export function initStorage(storage: JsonStorage<YouBarPlusStorage>): () => void {
 	activeStorageInstance = storage
-
-	// Synchronously hydrate from cache if available on boot
-	if ((storage as any)?.cache) {
-		memoryStorage = { ...DEFAULT_STORAGE, ...(storage as any).cache }
+	if (!initialized) {
+		initialized = true
+		storage.get().then((val) => {
+			if (val) {
+				memoryStorage = { ...DEFAULT_STORAGE, ...val }
+			}
+		})
 	}
-
-	storage.get().then((val) => {
+	const unsub = storage.subscribe((val) => {
 		if (val) {
 			memoryStorage = { ...DEFAULT_STORAGE, ...val }
 		}
 	})
-
-	const unsub = storage.subscribe((val) => {
-		const current = val || (storage as any)?.cache
-		if (current) {
-			memoryStorage = { ...DEFAULT_STORAGE, ...current }
-		}
-	})
-
-	return () => {
-		unsub?.()
-		activeStorageInstance = null
-	}
+	return () => unsub?.()
 }
 
 export function getYouBarStorage(): YouBarPlusStorage {
-	if ((activeStorageInstance as any)?.cache) {
-		return { ...DEFAULT_STORAGE, ...(activeStorageInstance as any).cache }
-	}
 	return memoryStorage
 }
 

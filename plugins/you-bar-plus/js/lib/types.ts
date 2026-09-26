@@ -36,7 +36,7 @@ export const DEFAULT_STORAGE: YouBarPlusStorage = {
 	compactAvatar: false,
 	hideStatus: false,
 	compactHeader: false,
-	hideBuiltinDM: false,
+	hideBuiltinDM: true,
 	moduleCache: {},
 }
 

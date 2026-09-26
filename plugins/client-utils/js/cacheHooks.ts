@@ -12,9 +12,7 @@ export function setupCacheHooks({
 	const filters = getFinders()?.filters
 
 	try {
-		const importedCache =
-			findByImportedPath('modules/application_commands/ApplicationCommandQueryApi.tsx') ??
-			findByImportedPath('modules/chat_input/native/accessories/ApplicationCommandQueryApi.tsx')
+		const importedCache = findByImportedPath('modules/chat_input/native/accessories/ApplicationCommandQueryApi.tsx')
 		const CacheMod =
 			importedCache?.default ||
 			importedCache ||

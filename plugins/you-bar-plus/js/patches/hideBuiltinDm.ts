@@ -25,10 +25,58 @@ export default function patchHideBuiltinDm(
 
 	const shouldHideBuiltinDm = () => {
 		const s = getYouBarStorage()
-		return s?.showDMButton !== false && s?.hideBuiltinDM === true
+		return s?.showDMButton !== false && s?.hideBuiltinDM !== false
 	}
 
-	// 1. Patch GuildsBarMessages component
+	// 1. Patch FastList prototype to capture GuildsBar FastList and ensure sections[0] = 0
+	try {
+		const fastListMod =
+			findByImportedPath('lib/native/FastList.tsx') ??
+			revenge.modules.finders.lookupModule(
+				revenge.modules.finders.filters.withProps('FastList'),
+			)?.[0]
+		const FL = fastListMod?.default ?? fastListMod
+		if (FL?.prototype?.render) {
+			const origRender = FL.prototype.render
+			FL.prototype.render = function (...args: any[]) {
+				if (this.props?.nativeID === 'guilds-bar-fast-list') {
+					cachedFastListInstance = this
+					if (shouldHideBuiltinDm()) {
+						if (Array.isArray(this.props.sections) && this.props.sections[0] === 1) {
+							this.props.sections[0] = 0
+						}
+						const origItemSize = this.props.itemSize
+						if (typeof origItemSize === 'function' && !origItemSize.__ybPatched) {
+							const patchedItemSize = (s: number, i: number) => {
+								if (s === 0 && shouldHideBuiltinDm()) return 0
+								return origItemSize(s, i)
+							}
+							;(patchedItemSize as any).__ybPatched = true
+							this.props.itemSize = patchedItemSize
+						}
+						const origRenderItem = this.props.renderItem
+						if (typeof origRenderItem === 'function' && !origRenderItem.__ybPatched) {
+							const patchedRenderItem = (s: number, i: number) => {
+								if (s === 0 && shouldHideBuiltinDm()) return null
+								return origRenderItem(s, i)
+							}
+							;(patchedRenderItem as any).__ybPatched = true
+							this.props.renderItem = patchedRenderItem
+						}
+					}
+				}
+				return origRender.apply(this, args)
+			}
+			cleanups.push(() => {
+				FL.prototype.render = origRender
+				cachedFastListInstance = null
+			})
+		}
+	} catch (e) {
+		console.error('[YouBar+] Error patching FastList prototype:', e)
+	}
+
+	// 2. Patch GuildsBarMessages component
 	const patchGuildsBarMessages = (mod: any) => {
 		const target = mod?.default ?? mod
 		if (!target) return
@@ -63,7 +111,7 @@ export default function patchHideBuiltinDm(
 		if (unsub) cleanups.push(unsub)
 	} catch {}
 
-	// 2. Patch useGuildsBarProps hook
+	// 3. Patch useGuildsBarProps hook
 	const patchUseGuildsBarProps = (mod: any) => {
 		if (!mod) return
 		const target = mod
@@ -73,38 +121,38 @@ export default function patchHideBuiltinDm(
 				target,
 				key,
 				(res: any) => {
-					if (!res?.listDataProps || !shouldHideBuiltinDm()) return res
-					const sections = res.listDataProps.sections
-					// Only modify if there are multiple sections and section 0 has exactly 1 item (the DM icon)
-					if (Array.isArray(sections) && sections.length > 1 && sections[0] === 1) {
-						res.listDataProps.sections = [0, ...sections.slice(1)]
-					}
-					const origItemSize = res.listDataProps.itemSize
-					if (typeof origItemSize === 'function' && !origItemSize.__ybPatched) {
-						const patched = (s: number, i: number) => {
-							if (s === 0 && shouldHideBuiltinDm()) return 0
-							return origItemSize(s, i)
+					if (!res?.listDataProps) return res
+					if (shouldHideBuiltinDm()) {
+						if (Array.isArray(res.listDataProps.sections) && res.listDataProps.sections[0] === 1) {
+							res.listDataProps.sections[0] = 0
 						}
-						;(patched as any).__ybPatched = true
-						res.listDataProps.itemSize = patched
-					}
-					const origSectionSize = res.listDataProps.sectionSize
-					if (typeof origSectionSize === 'function' && !origSectionSize.__ybPatched) {
-						const patched = (s: number) => {
-							if (s === 0 && shouldHideBuiltinDm()) return 0
-							return origSectionSize(s)
+						const origItemSize = res.listDataProps.itemSize
+						if (typeof origItemSize === 'function' && !origItemSize.__ybPatched) {
+							const patched = (s: number, i: number) => {
+								if (s === 0 && shouldHideBuiltinDm()) return 0
+								return origItemSize(s, i)
+							}
+							;(patched as any).__ybPatched = true
+							res.listDataProps.itemSize = patched
 						}
-						;(patched as any).__ybPatched = true
-						res.listDataProps.sectionSize = patched
-					}
-					const origRenderItem = res.listDataProps.renderItem
-					if (typeof origRenderItem === 'function' && !origRenderItem.__ybPatched) {
-						const patched = (s: number, i: number) => {
-							if (s === 0 && shouldHideBuiltinDm()) return null
-							return origRenderItem(s, i)
+						const origSectionSize = res.listDataProps.sectionSize
+						if (typeof origSectionSize === 'function' && !origSectionSize.__ybPatched) {
+							const patched = (s: number) => {
+								if (s === 0 && shouldHideBuiltinDm()) return 0
+								return origSectionSize(s)
+							}
+							;(patched as any).__ybPatched = true
+							res.listDataProps.sectionSize = patched
 						}
-						;(patched as any).__ybPatched = true
-						res.listDataProps.renderItem = patched
+						const origRenderItem = res.listDataProps.renderItem
+						if (typeof origRenderItem === 'function' && !origRenderItem.__ybPatched) {
+							const patched = (s: number, i: number) => {
+								if (s === 0 && shouldHideBuiltinDm()) return null
+								return origRenderItem(s, i)
+							}
+							;(patched as any).__ybPatched = true
+							res.listDataProps.renderItem = patched
+						}
 					}
 					return res
 				},
@@ -128,7 +176,7 @@ export default function patchHideBuiltinDm(
 		if (unsub) cleanups.push(unsub)
 	} catch {}
 
-	// 3. Patch GuildsBar component
+	// 4. Patch GuildsBar component
 	const patchGuildsBar = (mod: any) => {
 		const target = mod?.default ?? mod
 		if (!target) return
@@ -138,8 +186,8 @@ export default function patchHideBuiltinDm(
 			if (!node) return
 			if (node.props?.nativeID === 'guilds-bar-fast-list') {
 				if (shouldHideBuiltinDm()) {
-					if (Array.isArray(node.props.sections) && node.props.sections.length > 1 && node.props.sections[0] === 1) {
-						node.props.sections = [0, ...node.props.sections.slice(1)]
+					if (Array.isArray(node.props.sections) && node.props.sections[0] === 1) {
+						node.props.sections[0] = 0
 					}
 					const origItemSize = node.props.itemSize
 					if (typeof origItemSize === 'function' && !origItemSize.__ybPatched) {

@@ -1,5 +1,6 @@
 import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
-import { DEFAULT_STORAGE, type YouBarPlusStorage } from '../lib/types'
+import type { JsonStorage } from '@revenge-mod/json-storage'
+import { type YouBarPlusStorage } from '../lib/types'
 import { getYouBarStorage } from '../lib/storage'
 
 let updateCallbacks: Array<() => void> = []
@@ -237,13 +238,24 @@ export default function patchYouBarButtons(
 				if (!res) return res
 
 				const rawCache = getYouBarStorage()
+				const allExplicitlyDisabled =
+					rawCache.showDMButton === false &&
+					rawCache.showSettingsButton === false &&
+					rawCache.showNotificationsButton === false
+
 				const currentStorage: YouBarPlusStorage = {
-					...DEFAULT_STORAGE,
+					showDMButton: allExplicitlyDisabled ? true : (rawCache.showDMButton ?? true),
+					showSettingsButton: allExplicitlyDisabled ? true : (rawCache.showSettingsButton ?? true),
+					showNotificationsButton: allExplicitlyDisabled ? true : (rawCache.showNotificationsButton ?? true),
+					order: Array.isArray(rawCache.order) && rawCache.order.length === 3 ? rawCache.order : ['dms', 'notifications', 'settings'],
 					...rawCache,
-					order:
-						Array.isArray(rawCache?.order) && rawCache.order.length === 3
-							? rawCache.order
-							: DEFAULT_STORAGE.order,
+					...(allExplicitlyDisabled
+						? {
+								showDMButton: true,
+								showSettingsButton: true,
+								showNotificationsButton: true,
+						  }
+						: {}),
 				}
 
 				const targetElement = res.props?.children ?? res

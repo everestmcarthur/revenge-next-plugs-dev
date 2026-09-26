@@ -6,32 +6,6 @@ import {
 } from '../lib/types'
 import { getYouBarStorage } from '../lib/storage'
 
-const getCurrentStorage = (): YouBarPlusStorage => ({
-	...DEFAULT_STORAGE,
-	...getYouBarStorage(),
-})
-
-export const syncConstants = () => {
-	let c: any
-	try {
-		c =
-			findByImportedPath('modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx') ??
-			revenge.modules.finders.lookupModule(
-				revenge.modules.finders.filters.withProps('YOU_BAR_HEIGHT', 'YOU_BAR_PADDING'),
-			)?.[0]
-	} catch {}
-
-	if (!c?.YOU_BAR_HEIGHT) return
-	const current = getCurrentStorage()
-	c.YOU_BAR_HEIGHT = current.compactHeader ? 44 : 56
-	c.YOU_BAR_PADDING = current.compactHeader ? 4 : 12
-	if (current.compactAvatar) {
-		c.YOU_BAR_AVATAR_LARGE_PX = 45
-	} else {
-		c.YOU_BAR_AVATAR_LARGE_PX = 60
-	}
-}
-
 export default function patchCompactYou(
 	storage: JsonStorage<YouBarPlusStorage>,
 ): () => void {
@@ -39,6 +13,32 @@ export default function patchCompactYou(
 	const patchedTargets = new WeakSet<object>()
 	const React = revenge.react.React
 	const RN = revenge.react.ReactNative
+
+	const getCurrentStorage = (): YouBarPlusStorage => ({
+		...DEFAULT_STORAGE,
+		...getYouBarStorage(),
+	})
+
+	const syncConstants = () => {
+		let c: any
+		try {
+			c =
+				findByImportedPath('modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx') ??
+				revenge.modules.finders.lookupModule(
+					revenge.modules.finders.filters.withProps('YOU_BAR_HEIGHT', 'YOU_BAR_PADDING'),
+				)?.[0]
+		} catch {}
+
+		if (!c?.YOU_BAR_HEIGHT) return
+		const current = getCurrentStorage()
+		c.YOU_BAR_HEIGHT = current.compactHeader ? 44 : 56
+		c.YOU_BAR_PADDING = current.compactHeader ? 4 : 12
+		if (current.compactAvatar) {
+			c.YOU_BAR_AVATAR_LARGE_PX = 45
+		} else {
+			c.YOU_BAR_AVATAR_LARGE_PX = 60
+		}
+	}
 
 	const patchHeaderComponent = (mod: any) => {
 		const target = mod?.default ?? mod
