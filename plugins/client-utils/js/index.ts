@@ -12,7 +12,7 @@ const clientUtilsApi = {
 	unregisterCommand,
 	commands,
 	syncIndexStore,
-	version: '1.0.26',
+	version: '1.0.27',
 }
 
 export default plugin({

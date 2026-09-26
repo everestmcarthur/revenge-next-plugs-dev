@@ -49,9 +49,10 @@ export function waitForImportedPath<T = any>(
 	callback: (exports: T, id: number) => void,
 ): (() => void) | void {
 	const finders = getDiscordFinders()
-	if (typeof finders?.getModuleWithImportedPath === 'function') {
+	const fn = finders?.waitForModuleWithImportedPath ?? finders?.getModuleWithImportedPath
+	if (typeof fn === 'function') {
 		try {
-			return finders.getModuleWithImportedPath(path, (exports: any, id: number) => {
+			return fn(path, (exports: any, id: number) => {
 				const exp = Array.isArray(exports) ? exports[0] : exports
 				callback(exp as T, id)
 			})
