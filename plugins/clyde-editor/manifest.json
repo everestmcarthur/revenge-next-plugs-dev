@@ -3,7 +3,7 @@
 	"id": "dev.everestmcarthur.clyde-editor",
 	"name": "Clyde Utils",
 	"description": "Customizes Clyde's name, avatar, banner, bio, bot badge, role color, with built-in AI presets, live chat testing, and Destroy Clyde mode.",
-	"author": "thesillyuluv, Rosie",
+	"author": "Rosie",
 	"icon": "RobotIcon",
 	"version": "1.1.7",
 	"dependencies": {

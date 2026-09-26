@@ -22,7 +22,7 @@ export default definePlugin({
 		name: 'Client Utils',
 		description: 'Custom client-side slash command engine and utilities.',
 		version: '1.0.23',
-		author: 'Rosie & Everest',
+		author: 'Rosie',
 		icon: 'ic_message_edit',
 	} as any,
 
@@ -39,7 +39,7 @@ export default definePlugin({
 					id: 'dev.everestmcarthur.client-utils',
 					name: 'Client Utils',
 					icon: 'HammerIcon',
-					author: 'Rosie & Everest',
+					author: 'Rosie',
 					description: 'Custom client-side slash command engine and built-in Discord utilities.',
 					version: { nums: [1, 0, 0], label: null },
 				})

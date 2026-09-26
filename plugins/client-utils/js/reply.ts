@@ -9,30 +9,41 @@ import {
 	getAvatarUrl,
 } from './stores'
 
+export const formatEmbedToMarkdown = (opts: any): string => {
+	const embed = opts.embed || (opts.embeds && opts.embeds[0])
+	const parts: string[] = []
+
+	if (opts.content && typeof opts.content === 'string' && opts.content.trim()) {
+		parts.push(opts.content.trim())
+	}
+
+	if (embed) {
+		if (embed.author?.name) parts.push(`### ${embed.author.name}`)
+		if (embed.title) parts.push(`## ${embed.title}`)
+		if (embed.description) parts.push(embed.description)
+		if (embed.fields && Array.isArray(embed.fields)) {
+			for (const f of embed.fields) {
+				if (f.name && f.value) {
+					parts.push(`**${f.name}**: ${f.value}`)
+				}
+			}
+		}
+		if (embed.footer?.text) parts.push(`-# ${embed.footer.text}`)
+	}
+
+	const img = opts.imageUrl || embed?.image?.url || embed?.thumbnail?.url
+	if (img && typeof img === 'string' && !parts.some((p) => p.includes(img))) {
+		parts.push(img)
+	}
+
+	return parts.join('\n\n')
+}
+
 export const formatReplyData = (opts: any, defaultFormat = 'embed') => {
 	const chosenFormat = opts.format || defaultFormat
 
 	if (chosenFormat === 'text') {
-		let text = opts.content || ''
-		const embed = opts.embed || (opts.embeds && opts.embeds[0])
-		if (embed) {
-			const parts: string[] = []
-			if (embed.author?.name) parts.push(`### ${embed.author.name}`)
-			if (embed.title) parts.push(`## ${embed.title}`)
-			if (embed.description) parts.push(embed.description)
-			if (embed.fields && Array.isArray(embed.fields)) {
-				for (const f of embed.fields) {
-					parts.push(`**${f.name}**\n${f.value}`)
-				}
-			}
-			if (embed.footer?.text) parts.push(`-# ${embed.footer.text}`)
-			if (embed.image?.url) parts.push(embed.image.url)
-			const embedText = parts.join('\n\n')
-			text = text ? `${text}\n\n${embedText}` : embedText
-		}
-		if (opts.imageUrl && !text.includes(opts.imageUrl)) {
-			text = text ? `${text}\n${opts.imageUrl}` : opts.imageUrl
-		}
+		const text = formatEmbedToMarkdown(opts)
 		return {
 			content: text,
 			embeds: [],
@@ -121,22 +132,15 @@ export const formatReplyData = (opts: any, defaultFormat = 'embed') => {
 			container.accent_color = embed.color
 		}
 		return {
-			content: '',
+			content: formatEmbedToMarkdown(opts),
 			embeds: [],
 			components: [container],
 		}
 	} else {
-		let embeds = opts.embeds ? [...opts.embeds] : opts.embed ? [opts.embed] : []
+		const embeds = opts.embeds ? [...opts.embeds] : opts.embed ? [opts.embed] : []
 		let content = opts.content || ''
-		if (embeds.length === 0 && !opts.imageUrl && content && (!opts.components || opts.components.length === 0)) {
-			embeds = [
-				{
-					type: 'rich',
-					description: content,
-					color: 0x5865f2,
-				},
-			]
-			content = ''
+		if (!content) {
+			content = formatEmbedToMarkdown(opts)
 		}
 		return {
 			content,
@@ -162,54 +166,39 @@ export const sendReply = (
 		const msgActions = getMessageActions()
 		const targetChannelId = channelId || getSelectedChannelIdSafe()
 		const formatted = formatReplyData(opts)
+		const markdownText = formatEmbedToMarkdown(opts)
 
 		if (isEphemeral) {
 			const snowflake = (BigInt(Date.now() - 1420070400000) << 22n).toString()
 			const botMsgMod = getBotMessageMod()
 			const botMsgFn = botMsgMod?.createBotMessage || botMsgMod?.default?.createBotMessage
 			const base = botMsgFn && targetChannelId
-				? botMsgFn({ channelId: targetChannelId, content: formatted.content || '', loggingName: 'client-utils' })
+				? botMsgFn({ channelId: targetChannelId, content: markdownText || formatted.content || '', loggingName: 'client-utils' })
 				: null
 
 			const currentUser = getCurrentUserSafe()
-			const userDisplayName =
-				currentUser?.globalName || currentUser?.global_name || currentUser?.username || 'You'
-
-			const authorName =
-				opts.name ||
-				opts.username ||
-				opts.authorName ||
-				opts.author?.username ||
-				userDisplayName
-			const customAvatar =
+			const authorName = defaultAuthorName || 'Client Utils'
+			const authorAvatar =
 				opts.icon ||
 				opts.picture ||
 				opts.avatar ||
 				opts.image ||
-				opts.authorAvatar ||
-				opts.author?.avatar
-			const authorAvatar = customAvatar || currentUser?.avatar || null
-			const authorAvatarUrl =
-				typeof authorAvatar === 'string' && authorAvatar.startsWith('http')
-					? authorAvatar
-					: getAvatarUrl(currentUser)
+				_pluginMeta?.icon ||
+				_pluginMeta?.avatar ||
+				'clyde'
 
 			const msg = base || {
 				id: snowflake,
 				type: 0,
 				flags: 64,
-				content: formatted.content || '',
+				content: markdownText || formatted.content || '',
 				channel_id: targetChannelId,
 				author: {
-					id: currentUser?.id || '0',
+					id: '1',
 					username: authorName,
-					discriminator: currentUser?.discriminator || '0000',
+					discriminator: '0000',
 					avatar: authorAvatar,
-					avatarURL: authorAvatarUrl,
-					avatarDecorationData: currentUser?.avatarDecorationData || null,
-					globalName: currentUser?.globalName || currentUser?.global_name || authorName,
-					global_name: currentUser?.global_name || currentUser?.globalName || authorName,
-					bot: false,
+					bot: true,
 				},
 				attachments: opts.attachments || [],
 				embeds: formatted.embeds || [],
@@ -226,15 +215,11 @@ export const sendReply = (
 			}
 
 			if (msg.author) {
-				msg.author.id = currentUser?.id || msg.author.id
+				msg.author.id = '1'
 				msg.author.username = authorName
-				msg.author.discriminator = currentUser?.discriminator || msg.author.discriminator || '0000'
+				msg.author.discriminator = '0000'
 				msg.author.avatar = authorAvatar
-				msg.author.avatarURL = authorAvatarUrl
-				msg.author.avatarDecorationData = currentUser?.avatarDecorationData || null
-				msg.author.globalName = currentUser?.globalName || currentUser?.global_name || authorName
-				msg.author.global_name = currentUser?.global_name || currentUser?.globalName || authorName
-				msg.author.bot = false
+				msg.author.bot = true
 			}
 
 			if (cmdName) {
@@ -252,7 +237,7 @@ export const sendReply = (
 				}
 			}
 
-			msg.content = formatted.content || ''
+			msg.content = markdownText || formatted.content || ''
 			if (formatted.embeds && formatted.embeds.length > 0) {
 				msg.embeds = formatted.embeds
 			}
@@ -265,61 +250,43 @@ export const sendReply = (
 
 			if (msgActions?.receiveMessage) {
 				msgActions.receiveMessage(targetChannelId, msg)
+			} else if (msgActions?.sendBotMessage) {
+				msgActions.sendBotMessage(targetChannelId, msg.content, msg.embeds, 'client-utils')
 			} else {
 				const dispatcher = getDispatcher()
 				dispatcher?.dispatch?.({ type: 'MESSAGE_CREATE', channelId: targetChannelId, message: msg, optimistic: false })
 			}
 		} else {
-			let text = formatted.content || ''
-			if (opts.imageUrl && !text.includes(opts.imageUrl)) {
-				text = text ? `${text}\n${opts.imageUrl}` : opts.imageUrl
-			} else if (opts.embed?.image?.url && !text.includes(opts.embed.image.url)) {
-				text = text ? `${text}\n${opts.embed.image.url}` : opts.embed.image.url
-			}
-
-			if (!text && (!formatted.embeds || formatted.embeds.length === 0) && (!formatted.components || formatted.components.length === 0)) return
-			if (!targetChannelId) return
+			const textToSend = markdownText || formatted.content || ''
+			if (!textToSend.trim() || !targetChannelId) return
 
 			const nonce = (BigInt(Date.now() - 1420070400000) << 22n).toString()
+			const msgPayload = {
+				content: textToSend,
+				tts: false,
+				invalidEmojis: [],
+				validNonShortcutEmojis: [],
+			}
 
-			const hasCustomPayload = (formatted.components && formatted.components.length > 0) || (formatted.embeds && formatted.embeds.length > 0)
-			const filters = getFinders()?.filters
-			const RestAPI = getMod(filters?.withProps('get', 'post', 'del'))
-			if (hasCustomPayload && RestAPI?.post) {
-				RestAPI.post({
-					url: `/channels/${targetChannelId}/messages`,
-					body: {
-						content: text,
-						tts: false,
-						nonce,
-						flags: 0,
-						embeds: formatted.embeds || [],
-						components: formatted.components || [],
-					},
-				}).catch(() => {
-					const msgPayload = {
-						content: text || (formatted.embeds?.[0]?.description ?? ''),
-						tts: false,
-						invalidEmojis: [],
-						validNonShortcutEmojis: [],
-					}
-					if (typeof msgActions?._sendMessage === 'function') {
-						msgActions._sendMessage(targetChannelId, msgPayload, { nonce })
-					} else if (typeof msgActions?.sendMessage === 'function') {
-						msgActions.sendMessage(targetChannelId, msgPayload, null, { nonce })
-					}
-				})
+			if (typeof msgActions?._sendMessage === 'function') {
+				msgActions._sendMessage(targetChannelId, msgPayload, { nonce })
+			} else if (typeof msgActions?.sendMessage === 'function') {
+				msgActions.sendMessage(targetChannelId, msgPayload, null, { nonce })
 			} else {
-				const msgPayload = {
-					content: text,
-					tts: false,
-					invalidEmojis: [],
-					validNonShortcutEmojis: [],
-				}
-				if (typeof msgActions?._sendMessage === 'function') {
-					msgActions._sendMessage(targetChannelId, msgPayload, { nonce })
-				} else if (typeof msgActions?.sendMessage === 'function') {
-					msgActions.sendMessage(targetChannelId, msgPayload, null, { nonce })
+				const filters = getFinders()?.filters
+				const RestAPI = getMod(filters?.withProps('get', 'post', 'del'))
+				if (RestAPI?.post) {
+					RestAPI.post({
+						url: `/channels/${targetChannelId}/messages`,
+						body: {
+							content: textToSend,
+							tts: false,
+							nonce,
+							flags: 0,
+						},
+					}).catch((e: any) => {
+						logger?.error?.(`[ClientUtils] RestAPI.post error: ${e}`)
+					})
 				}
 			}
 		}

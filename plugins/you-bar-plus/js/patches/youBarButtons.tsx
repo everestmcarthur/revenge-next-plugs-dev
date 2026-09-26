@@ -1,6 +1,7 @@
 import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import { type YouBarPlusStorage } from '../lib/types'
+import { getYouBarStorage } from '../lib/storage'
 
 let updateCallbacks: Array<() => void> = []
 
@@ -157,7 +158,7 @@ function handleDmButtonPress(storage?: JsonStorage<YouBarPlusStorage>) {
 		const currentGuildId = guildStore?.getGuildId()
 		const isCurrentlyInDms = currentGuildId === '@me' || currentGuildId === null
 
-		const doubleTapEnabled = storage?.cache?.doubleTapReturn !== false
+		const doubleTapEnabled = getYouBarStorage().doubleTapReturn !== false
 		const isDoubleTap = doubleTapEnabled && now - lastDmTapTime < 500
 
 		if (isDoubleTap && isCurrentlyInDms) {
@@ -210,9 +211,6 @@ export default function patchYouBarButtons(
 			}
 		} catch {}
 
-		if (typeof id === 'number') {
-			saveCachedModuleId(storage, 'youBarButtonId', id)
-		}
 
 		const isMemo = typeof component.type === 'function'
 		const target = isMemo ? component : (typeof targetModule?.default === 'function' ? targetModule : component)
@@ -239,7 +237,7 @@ export default function patchYouBarButtons(
 				const res = OriginalRender(...args)
 				if (!res) return res
 
-				const rawCache = storage.cache ?? {}
+				const rawCache = getYouBarStorage()
 				const allExplicitlyDisabled =
 					rawCache.showDMButton === false &&
 					rawCache.showSettingsButton === false &&

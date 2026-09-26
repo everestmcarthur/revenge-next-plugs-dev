@@ -3,9 +3,9 @@
 	"id": "dev.everestmcarthur.view-raw",
 	"name": "ViewRaw",
 	"description": "View a message's raw JSON data - searchable, syntax-highlighted, and copyable with one tap.",
-	"author": "bwlok, Rosie",
+	"author": "Rosie",
 	"icon": "CodeIcon",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

@@ -4,6 +4,7 @@ import {
 	DEFAULT_STORAGE,
 	type YouBarPlusStorage,
 } from '../lib/types'
+import { getYouBarStorage } from '../lib/storage'
 
 export default function patchCompactYou(
 	storage: JsonStorage<YouBarPlusStorage>,
@@ -15,7 +16,7 @@ export default function patchCompactYou(
 
 	const getCurrentStorage = (): YouBarPlusStorage => ({
 		...DEFAULT_STORAGE,
-		...(storage.cache ?? {}),
+		...getYouBarStorage(),
 	})
 
 	const syncConstants = () => {

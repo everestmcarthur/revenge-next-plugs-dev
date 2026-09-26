@@ -3,7 +3,7 @@
 	"id": "dev.everestmcarthur.more-alts",
 	"name": "More Alts!",
 	"description": "Manage and switch between multiple Discord accounts, plus unlocks Discord's own native multi-account switcher.",
-	"author": "Win8.1VMUser, John, cocobo1, Rosie",
+	"author": "Rosie",
 	"icon": "ic_full_server_gating_24px",
 	"version": "1.1.5",
 	"dependencies": {

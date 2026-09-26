@@ -1,6 +1,7 @@
 import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import { type YouBarPlusStorage } from '../lib/types'
+import { getYouBarStorage } from '../lib/storage'
 
 let cachedFastListInstance: any = null
 
@@ -17,8 +18,13 @@ export default function patchHideBuiltinDm(
 ): () => void {
 	const cleanups: Array<() => void> = []
 
+	const unsubStorage = storage.subscribe(() => {
+		requestGuildsBarUpdate()
+	})
+	cleanups.push(() => unsubStorage?.())
+
 	const shouldHideBuiltinDm = () => {
-		const s = storage.cache
+		const s = getYouBarStorage()
 		return s?.showDMButton !== false && s?.hideBuiltinDM !== false
 	}
 

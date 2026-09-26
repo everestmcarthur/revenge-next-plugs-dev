@@ -30,12 +30,20 @@ export function setupExecHooks({
 			const origSend = ExecMod.chatInputSendApplicationCommand
 			ExecMod.chatInputSendApplicationCommand = function (data: any) {
 				try {
-					const cmdName =
+					const rawName =
 						data?.applicationCommand?.command?.name ||
 						data?.applicationCommand?.name ||
 						data?.command?.name ||
-						data?.name
-					const registered = commands.get(cmdName)
+						data?.name ||
+						data?.params?.command?.name ||
+						data?.params?.applicationCommand?.name ||
+						''
+					const cmdName = String(rawName).replace(/^\//, '').toLowerCase().trim()
+					let registered = commands.get(cmdName)
+					if (!registered && (data?.command?.id || data?.applicationCommand?.id)) {
+						const targetId = data?.command?.id || data?.applicationCommand?.id
+						registered = Array.from(commands.values()).find((c: any) => c.id === targetId)
+					}
 
 					if (registered) {
 						const channelId =

@@ -3,6 +3,7 @@ import patchCompactYou from './patches/compactYou'
 import patchHideBuiltinDm, { requestGuildsBarUpdate } from './patches/hideBuiltinDm'
 import Settings from './ui/Settings'
 import { DEFAULT_STORAGE, type YouBarPlusStorage } from './lib/types'
+import { initStorage, setYouBarStorage } from './lib/storage'
 
 export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 	jsonStorage: {
@@ -17,6 +18,8 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 			} catch {}
 		}
 
+		const cleanStorage = initStorage(api.jsonStorage)
+
 		const everest = (globalThis as any).__everest
 		everest?.setActivePlugin?.(api.plugin.manifest.id)
 		everest?.registerPlugin?.({
@@ -30,7 +33,10 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 			getErrors: () => api.plugin.errors,
 		})
 
-		void api.jsonStorage.get().then(() => {
+		void api.jsonStorage.get().then((val) => {
+			if (val) {
+				setYouBarStorage(val)
+			}
 			requestYouBarUpdate()
 			requestGuildsBarUpdate()
 		})
@@ -57,6 +63,7 @@ export default plugin<{ jsonStorage: YouBarPlusStorage }>({
 		}
 
 		api.cleanup(() => {
+			cleanStorage()
 			unpatchButtons()
 			unpatchCompact()
 			unpatchBuiltinDm()
