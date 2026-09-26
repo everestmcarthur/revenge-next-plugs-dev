@@ -5,7 +5,7 @@
 	"description": "Customizes Clyde's name, avatar, banner, bio, bot badge, role color, with built-in AI presets, live chat testing, and Destroy Clyde mode.",
 	"author": "Rosie",
 	"icon": "RobotIcon",
-	"version": "1.1.7",
+	"version": "1.1.8",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"
