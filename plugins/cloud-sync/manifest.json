@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.cloud-sync",
+	"name": "CloudSync",
+	"description": "Sync and backup your plugins, themes, and settings seamlessly to the cloud.",
+	"author": "Rosie",
+	"icon": "ic_cloud_download_24px",
+	"version": "1.0.0",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

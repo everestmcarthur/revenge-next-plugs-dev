@@ -1,0 +1,33 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "cloudsync",
+	"main": "src/index.ts",
+	"account_id": "dc5e308f1df2d6bb5082951d3f3993a5",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"compatibility_date": "2026-01-28",
+	"workers_dev": true,
+	"routes": [
+		{
+			"pattern": "cloud.allyapp.cc",
+			"custom_domain": true
+		}
+	],
+	"vars": {
+		"IS_PRODUCTION": "true",
+		"CLIENT_ID": "1538636934568607744",
+		"CLIENT_SECRET": "UV5XhE4c_36S0MxOtf9l2rlFiewZmiMN",
+		"JWT_SECRET": "c9576d011712ebfa1baa0c7a4960d795c389f6659ae9151a7629792a4b857b267d9e7b8ddc6d5ba942370d487cbfee51ae63f1d060d286e98d88f2ae064d7e03"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "CloudSync",
+			"database_id": "c36fc74c-cf8d-4317-be32-317de5d47887"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}

@@ -19,3 +19,5 @@ node_modules/
 /index.js
 /index.json
 /scripts/pack-client-utils.mjs
+.wrangler/
+workers/**/bundled/

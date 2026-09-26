@@ -50,6 +50,14 @@ jobs:
                   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
               run: bunx wrangler deploy
 
+            - name: Deploy CloudSync Worker
+              env:
+                  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              run: |
+                  cd workers/cloudsync
+                  bun install
+                  bunx wrangler deploy
+
             - name: Verify deployed index and artifact integrity
               env:
                   VERIFY_BASE_URL: https://dev-next.jarviscli.dev
