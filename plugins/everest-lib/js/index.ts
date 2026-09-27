@@ -1,13 +1,13 @@
-import * as Modules from './lib/modules'
 import * as Finders from './lib/finders'
-import * as Stores from './lib/stores'
+import * as Icons from './lib/icons'
+import * as Log from './lib/log'
+import * as Modules from './lib/modules'
 import * as Navigation from './lib/navigation'
 import * as Patcher from './lib/patcher'
-import * as Icons from './lib/icons'
-import * as Tokens from './lib/tokens'
-import * as Sheets from './lib/sheets'
 import * as Registry from './lib/registry'
-import * as Log from './lib/log'
+import * as Sheets from './lib/sheets'
+import * as Stores from './lib/stores'
+import * as Tokens from './lib/tokens'
 import Settings from './ui/Settings'
 
 const EverestLib = {
@@ -34,7 +34,7 @@ export default plugin({
 			} catch {}
 		}
 
-		decorate((targetPlugin) => {
+		decorate(targetPlugin => {
 			targetPlugin.api.unscoped.everest = EverestLib
 		})
 	},

@@ -18,6 +18,7 @@ export function requestYouBarUpdate() {
 
 let cachedTransitionRouter: any = null
 let cachedUserSettingsRouter: any = null
+let cachedRootNavigationRef: any = null
 
 function isYouBarNotificationsButton(mod: any): boolean {
 	if (!mod) return false
@@ -73,6 +74,47 @@ function getTransitionRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	return undefined
 }
 
+function getRootNavigation() {
+	if (typeof cachedRootNavigationRef?.getRootNavigationRef === 'function') {
+		try {
+			const nav = cachedRootNavigationRef.getRootNavigationRef()
+			if (nav) return nav
+		} catch {}
+	}
+
+	try {
+		const revengeNav = (
+			revenge.discord as any
+		)?.modules?.mainTabsV2?.RootNavigationRef?.getRootNavigationRef?.()
+		if (revengeNav) return revengeNav
+	} catch {}
+
+	try {
+		const direct = findByImportedPath(
+			'modules/main_tabs_v2/RootNavigationRef.native.tsx',
+		)
+		const target = (direct as any)?.default ?? direct
+		if (typeof target?.getRootNavigationRef === 'function') {
+			cachedRootNavigationRef = target
+			return target.getRootNavigationRef()
+		}
+	} catch {}
+
+	try {
+		const { filters, lookupModule } = revenge.modules.finders
+		const res = lookupModule(filters.withProps('getRootNavigationRef'))
+		if (res && res !== revenge.modules.finders.NotFoundResult && res[0]) {
+			const mod = res[0]?.default ?? res[0]
+			if (typeof mod?.getRootNavigationRef === 'function') {
+				cachedRootNavigationRef = mod
+				return mod.getRootNavigationRef()
+			}
+		}
+	} catch {}
+
+	return undefined
+}
+
 function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	if (typeof cachedUserSettingsRouter?.openUserSettings === 'function') {
 		return cachedUserSettingsRouter
@@ -100,6 +142,18 @@ function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	} catch {}
 
 	try {
+		const { filters, lookupModule } = revenge.modules.finders
+		const res = lookupModule(filters.withProps('openUserSettings'))
+		if (res && res !== revenge.modules.finders.NotFoundResult && res[0]) {
+			const mod = res[0]?.default ?? res[0]
+			if (typeof mod?.openUserSettings === 'function') {
+				cachedUserSettingsRouter = mod
+				return mod
+			}
+		}
+	} catch {}
+
+	try {
 		const f = Object.assign(
 			(_id: any, exp: any) => {
 				const t = exp?.default ?? exp
@@ -121,6 +175,71 @@ function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	} catch {}
 
 	return undefined
+}
+
+function handleSettingsButtonPress(_storage?: JsonStorage<YouBarPlusStorage>) {
+	// 1. If openUserSettings action is already loaded, use it
+	try {
+		const router = getUserSettingsRouter(_storage)
+		if (typeof router?.openUserSettings === 'function') {
+			router.openUserSettings('Overview')
+			return
+		}
+	} catch (e) {
+		console.warn(
+			'[YouBar+] router.openUserSettings failed, falling back to RootNavigation:',
+			e,
+		)
+	}
+
+	// 2. React Navigation via RootNavigationRef (available immediately on fresh load)
+	try {
+		const nav = getRootNavigation()
+		if (nav && typeof nav.navigate === 'function') {
+			const state = nav.getState?.() || nav.getRootState?.()
+			const routeNames: string[] = state?.routeNames || []
+
+			if (routeNames.includes('settings')) {
+				nav.navigate('settings')
+				return
+			}
+			if (routeNames.includes('Settings')) {
+				nav.navigate('Settings')
+				return
+			}
+			if (routeNames.includes('UserSettings')) {
+				nav.navigate('UserSettings')
+				return
+			}
+			if (routeNames.includes('user_settings')) {
+				nav.navigate('user_settings')
+				return
+			}
+
+			// Direct navigate to 'settings'
+			nav.navigate('settings')
+			return
+		}
+	} catch (e) {
+		console.error('[YouBar+] RootNavigation settings navigation failed:', e)
+	}
+
+	// 3. Fallback: everest-lib openUserSettings
+	try {
+		const everest = (globalThis as any).__everest ?? (revenge as any)?.everest
+		if (typeof everest?.openUserSettings === 'function') {
+			everest.openUserSettings('Overview')
+			return
+		}
+	} catch {}
+
+	// 4. Fallback: navigate to You tab
+	try {
+		const nav = getRootNavigation()
+		if (nav && typeof nav.navigate === 'function') {
+			nav.navigate('tabs', { screen: 'you' })
+		}
+	} catch {}
 }
 
 let lastDmTapTime = 0
@@ -322,8 +441,7 @@ export default function patchYouBarButtons(
 								accessibilityLabel: 'User Settings',
 								onPress: () => {
 									try {
-										const router = getUserSettingsRouter(storage)
-										router?.openUserSettings?.()
+										handleSettingsButtonPress(storage)
 									} catch (e) {
 										console.error('[YouBar+] Settings button error:', e)
 									}
@@ -425,6 +543,30 @@ export default function patchYouBarButtons(
 				)
 				if (typeof unsub === 'function') cleanups.push(unsub)
 			}
+		} catch {}
+
+		try {
+			const unsubSettings = waitForImportedPath(
+				'modules/user_settings/core/native/openUserSettings.tsx',
+				m => {
+					const target = (m as any)?.default ?? m
+					if (typeof target?.openUserSettings === 'function') {
+						cachedUserSettingsRouter = target
+					}
+				},
+			)
+			if (unsubSettings) cleanups.push(unsubSettings)
+
+			const unsubNav = waitForImportedPath(
+				'modules/main_tabs_v2/RootNavigationRef.native.tsx',
+				m => {
+					const target = (m as any)?.default ?? m
+					if (typeof target?.getRootNavigationRef === 'function') {
+						cachedRootNavigationRef = target
+					}
+				},
+			)
+			if (unsubNav) cleanups.push(unsubNav)
 		} catch {}
 	} catch (e) {
 		console.error('[YouBar+] Error finding YouBarNotificationsButton:', e)

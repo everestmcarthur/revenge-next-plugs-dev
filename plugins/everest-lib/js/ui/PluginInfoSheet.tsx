@@ -113,10 +113,7 @@ export default function PluginInfoSheet({ pluginId }: { pluginId: string }) {
 							label="Author"
 							subLabel={registered.author ?? 'Unknown'}
 						/>
-						<TableRow
-							label="Description"
-							subLabel={registered.description}
-						/>
+						<TableRow label="Description" subLabel={registered.description} />
 						<TableRow label="Status" subLabel={status} />
 					</TableRowGroup>
 
@@ -137,9 +134,7 @@ export default function PluginInfoSheet({ pluginId }: { pluginId: string }) {
 						<TableRowGroup title={`Library Logs (${logs.length})`}>
 							{logs.map((log: any, idx: number) => {
 								const iconName =
-									log.found !== false
-										? 'CheckmarkLargeIcon'
-										: 'CrossMediumIcon'
+									log.found !== false ? 'CheckmarkLargeIcon' : 'CrossMediumIcon'
 
 								let leadingIcon: any = null
 								if (TableRowAssetIcon) {
@@ -166,10 +161,7 @@ export default function PluginInfoSheet({ pluginId }: { pluginId: string }) {
 										subLabel={log.target || log.message}
 										trailing={
 											Text ? (
-												<Text
-													variant="text-sm/normal"
-													color="text-muted"
-												>
+												<Text variant="text-sm/normal" color="text-muted">
 													#{log.attempt ?? 1}
 												</Text>
 											) : undefined

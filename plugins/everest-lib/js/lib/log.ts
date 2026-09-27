@@ -27,7 +27,7 @@ export function addLog(
 	entry: Omit<LogEntry, 'timestamp'> & { timestamp?: number },
 ) {
 	const key = `${entry.id}:${entry.action}:${entry.target}`
-	const attempt = entry.attempt ?? ((attemptMap.get(key) ?? 0) + 1)
+	const attempt = entry.attempt ?? (attemptMap.get(key) ?? 0) + 1
 	attemptMap.set(key, attempt)
 
 	const fullEntry: LogEntry = {
@@ -86,7 +86,7 @@ export function getLogs(filter?: {
 	errorsOnly?: boolean
 }): readonly LogEntry[] {
 	if (!filter) return logs
-	return logs.filter((l) => {
+	return logs.filter(l => {
 		if (filter.pluginId && l.id !== filter.pluginId) return false
 		if (filter.errorsOnly && l.found !== false && l.level !== 'error')
 			return false
@@ -96,7 +96,7 @@ export function getLogs(filter?: {
 
 export function clearLogs(pluginId?: string) {
 	if (pluginId) {
-		const remaining = logs.filter((l) => l.id !== pluginId)
+		const remaining = logs.filter(l => l.id !== pluginId)
 		logs.length = 0
 		logs.push(...remaining)
 	} else {
@@ -116,4 +116,3 @@ export function onLog(fn: () => void): () => void {
 		listeners.delete(fn)
 	}
 }
-

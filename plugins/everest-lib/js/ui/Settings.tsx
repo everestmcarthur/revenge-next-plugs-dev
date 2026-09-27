@@ -1,24 +1,28 @@
-import PluginList from './PluginList'
 import {
-	getLogs,
 	clearLogs,
+	getLogs,
 	isDebugLoggingEnabled,
-	setDebugLoggingEnabled,
 	onLog,
+	setDebugLoggingEnabled,
 } from '../lib/log'
+import PluginList from './PluginList'
 
 export default function Settings() {
-	const { Page, FormSwitch, TableRowAssetIcon } = (revenge.components ?? {}) as any
+	const { Page, FormSwitch, TableRowAssetIcon } = (revenge.components ??
+		{}) as any
 	const { ScrollView, View } = revenge.react.ReactNative
-	const { Stack, Text, Card, TableRowGroup, TableRow } =
-		revenge.discord.design.Design as any
+	const { Stack, Text, Card, TableRowGroup, TableRow } = revenge.discord.design
+		.Design as any
 
 	const [debugEnabled, setDebugEnabled] = revenge.react.React.useState(() =>
 		isDebugLoggingEnabled(),
 	)
 	const [showAllLogs, setShowAllLogs] = revenge.react.React.useState(false)
 	const [copied, setCopied] = revenge.react.React.useState(false)
-	const [, forceUpdate] = revenge.react.React.useReducer((x: number) => x + 1, 0)
+	const [, forceUpdate] = revenge.react.React.useReducer(
+		(x: number) => x + 1,
+		0,
+	)
 
 	revenge.react.React.useEffect(() => {
 		return onLog(() => {
@@ -37,7 +41,7 @@ export default function Settings() {
 		try {
 			const formatted = logs
 				.map(
-					(l) =>
+					l =>
 						`[${new Date(l.timestamp).toISOString()}] [${l.id}] [${l.level.toUpperCase()}] ${l.found ? 'SUCCESS' : 'FAILED'} - ${l.action}: ${l.target} (Attempt #${l.attempt ?? 1})${l.message ? `\n  Error: ${l.message}` : ''}`,
 				)
 				.join('\n')
@@ -57,17 +61,14 @@ export default function Settings() {
 					<Stack spacing={16}>
 						<Card>
 							<View style={{ padding: 16 }}>
-								<Text variant="heading-md/semibold">
-									Everest Library
-								</Text>
+								<Text variant="heading-md/semibold">Everest Library</Text>
 								<Text
 									variant="text-sm/normal"
 									color="text-muted"
 									style={{ marginTop: 6 }}
 								>
-									Shared utility modules, Discord finders,
-									navigators, and native helpers for Everest
-									plugins on Revenge Next.
+									Shared utility modules, Discord finders, navigators, and
+									native helpers for Everest plugins on Revenge Next.
 								</Text>
 							</View>
 						</Card>
@@ -129,10 +130,7 @@ export default function Settings() {
 											subLabel={log.target || log.message}
 											trailing={
 												Text ? (
-													<Text
-														variant="text-sm/normal"
-														color="text-muted"
-													>
+													<Text variant="text-sm/normal" color="text-muted">
 														#{log.attempt ?? 1}
 													</Text>
 												) : undefined

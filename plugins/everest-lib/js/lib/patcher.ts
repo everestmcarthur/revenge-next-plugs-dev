@@ -1,5 +1,5 @@
-import { getActivePluginId } from './modules'
 import { logUsage } from './log'
+import { getActivePluginId } from './modules'
 
 export function safeInstead<
 	Parent extends Record<Key, any>,
@@ -18,7 +18,14 @@ export function safeInstead<
 			logUsage(pluginId, 'patcher', 'unpatch:instead', String(key), true)
 		}
 	} catch (e) {
-		logUsage(pluginId, 'patcher', 'patch:instead', String(key), false, String(e))
+		logUsage(
+			pluginId,
+			'patcher',
+			'patch:instead',
+			String(key),
+			false,
+			String(e),
+		)
 		return () => {}
 	}
 }
@@ -26,11 +33,7 @@ export function safeInstead<
 export function safeBefore<
 	Parent extends Record<Key, any>,
 	Key extends keyof Parent,
->(
-	parent: Parent,
-	key: Key,
-	hook: (args: any[]) => any,
-): () => void {
+>(parent: Parent, key: Key, hook: (args: any[]) => any): () => void {
 	const pluginId = getActivePluginId()
 	try {
 		const unpatch = revenge.patcher.before(parent, key, hook as any)

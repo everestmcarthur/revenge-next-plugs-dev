@@ -19,7 +19,7 @@ export function getIcon(name: string): () => any {
 			withGeneratedIconComponent
 				? withGeneratedIconComponent(name)
 				: withProps(name),
-			(exports) => exports?.[name],
+			exports => exports?.[name],
 		)
 		iconCache.set(name, getter)
 	}

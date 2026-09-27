@@ -9,7 +9,9 @@ export const getGuildStore = createStoreGetter('GuildStore')
 export const getGuildRoleStore = createStoreGetter('GuildRoleStore')
 export const getGuildChannelStore = createStoreGetter('GuildChannelStore')
 export const getGuildMemberStore = createStoreGetter('GuildMemberStore')
-export const getGuildMemberCountStore = createStoreGetter('GuildMemberCountStore')
+export const getGuildMemberCountStore = createStoreGetter(
+	'GuildMemberCountStore',
+)
 export const getRelationshipStore = createStoreGetter('RelationshipStore')
 export const getMessageStore = createStoreGetter('MessageStore')
 export const getThemeStore = createStoreGetter('ThemeStore')

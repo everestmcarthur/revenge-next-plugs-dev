@@ -1,5 +1,5 @@
-import { lazy, getActivePluginId } from './modules'
 import { logUsage } from './log'
+import { getActivePluginId, lazy } from './modules'
 
 export function onModule(
 	filter: any,
@@ -47,7 +47,14 @@ export function forceInitModule(filter: any): void {
 		revenge.modules.finders.lookupModule(filter, { initialize: true })
 		logUsage(pluginId, 'finders', 'finder:forceInit', 'lookupModule', true)
 	} catch (e) {
-		logUsage(pluginId, 'finders', 'finder:forceInit', 'lookupModule', false, String(e))
+		logUsage(
+			pluginId,
+			'finders',
+			'finder:forceInit',
+			'lookupModule',
+			false,
+			String(e),
+		)
 	}
 }
 
@@ -67,7 +74,7 @@ const byProps = lazy(() =>
 		([props], _id, exports: any) =>
 			exports != null &&
 			(typeof exports === 'object' || typeof exports === 'function') &&
-			props.every((prop) => prop in exports),
+			props.every(prop => prop in exports),
 		([props]) => `everest.props(${props.join(',')})`,
 		revenge.modules.finders.filters.FilterScopes.All,
 	),

@@ -41,11 +41,24 @@ export function createModuleGetter<T>(
 					if (resolved !== undefined) {
 						cached = resolved
 						done = true
-						logUsage(activePluginId, 'finders', `module:${description}`, 'resolve', true)
+						logUsage(
+							activePluginId,
+							'finders',
+							`module:${description}`,
+							'resolve',
+							true,
+						)
 						unsub?.()
 					}
 				} catch (e) {
-					logUsage(activePluginId, 'finders', `module:${description}`, 'resolve', false, String(e))
+					logUsage(
+						activePluginId,
+						'finders',
+						`module:${description}`,
+						'resolve',
+						false,
+						String(e),
+					)
 				}
 			},
 			{ returnNamespace: true },
@@ -61,12 +74,25 @@ export function createModuleGetter<T>(
 				if (resolved !== undefined) {
 					cached = resolved
 					done = true
-					logUsage(activePluginId, 'finders', `module:${description}`, 'lookup', true)
+					logUsage(
+						activePluginId,
+						'finders',
+						`module:${description}`,
+						'lookup',
+						true,
+					)
 					return cached
 				}
 			}
 		} catch (e) {
-			logUsage(activePluginId, 'finders', `module:${description}`, 'lookup', false, String(e))
+			logUsage(
+				activePluginId,
+				'finders',
+				`module:${description}`,
+				'lookup',
+				false,
+				String(e),
+			)
 		}
 		return cached
 	}
@@ -86,7 +112,14 @@ export function createStoreGetter(name: string): () => any {
 			unsub?.()
 		})
 	} catch (e) {
-		logUsage(activePluginId, 'stores', `store:${name}`, 'getStore', false, String(e))
+		logUsage(
+			activePluginId,
+			'stores',
+			`store:${name}`,
+			'getStore',
+			false,
+			String(e),
+		)
 	}
 
 	return () => {
@@ -101,7 +134,14 @@ export function createStoreGetter(name: string): () => any {
 				logUsage(activePluginId, 'stores', `store:${name}`, 'resolve', false)
 			}
 		} catch (e) {
-			logUsage(activePluginId, 'stores', `store:${name}`, 'resolve', false, String(e))
+			logUsage(
+				activePluginId,
+				'stores',
+				`store:${name}`,
+				'resolve',
+				false,
+				String(e),
+			)
 		}
 		return cached
 	}

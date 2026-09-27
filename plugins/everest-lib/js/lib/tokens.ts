@@ -12,9 +12,7 @@ export function resolveColor(
 			const result = tokens.internal.resolveSemanticColor(theme, semObj)
 			if (typeof result === 'string' && result.startsWith('#')) return result
 			if (typeof result === 'number') {
-				return (
-					'#' + (result >>> 0).toString(16).padStart(8, '0').slice(2)
-				)
+				return '#' + (result >>> 0).toString(16).padStart(8, '0').slice(2)
 			}
 		}
 
