@@ -1,10 +1,13 @@
+import { DEFAULT_STORAGE } from './types'
 import type { JsonStorage } from '@revenge-mod/json-storage'
-import { DEFAULT_STORAGE, type YouBarPlusStorage } from './types'
+import type { YouBarPlusStorage } from './types'
 
 let activeStorageInstance: JsonStorage<YouBarPlusStorage> | null = null
 let memoryStorage: YouBarPlusStorage = { ...DEFAULT_STORAGE }
 
-export function initStorage(storage: JsonStorage<YouBarPlusStorage>): () => void {
+export function initStorage(
+	storage: JsonStorage<YouBarPlusStorage>,
+): () => void {
 	activeStorageInstance = storage
 
 	// Synchronously hydrate from cache if available on boot
@@ -12,13 +15,13 @@ export function initStorage(storage: JsonStorage<YouBarPlusStorage>): () => void
 		memoryStorage = { ...DEFAULT_STORAGE, ...(storage as any).cache }
 	}
 
-	storage.get().then((val) => {
+	storage.get().then(val => {
 		if (val) {
 			memoryStorage = { ...DEFAULT_STORAGE, ...val }
 		}
 	})
 
-	const unsub = storage.subscribe((val) => {
+	const unsub = storage.subscribe(val => {
 		const current = val || (storage as any)?.cache
 		if (current) {
 			memoryStorage = { ...DEFAULT_STORAGE, ...current }

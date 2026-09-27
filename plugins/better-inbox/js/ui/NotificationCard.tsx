@@ -1,7 +1,11 @@
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native'
-import type { NotificationCategory, NotificationItem } from '../lib/types'
-import { getAvatarUrl, navigateToChannel, openUserProfile } from '../lib/navigation'
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+	getAvatarUrl,
+	navigateToChannel,
+	openUserProfile,
+} from '../lib/navigation'
 import { openNotificationContextMenu } from './NotificationContextMenu'
+import type { NotificationCategory, NotificationItem } from '../lib/types'
 
 export function categoryLabel(cat: NotificationCategory): string {
 	switch (cat) {
@@ -36,7 +40,8 @@ export function NotificationCard({
 
 	const handlePress = () => {
 		if (
-			(item.category === 'friend_request' || (!item.channelId && !item.guildId)) &&
+			(item.category === 'friend_request' ||
+				(!item.channelId && !item.guildId)) &&
 			item.author?.id
 		) {
 			openUserProfile(item.author.id)

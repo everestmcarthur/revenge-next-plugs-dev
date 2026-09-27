@@ -1,15 +1,23 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, FlatList } from 'react-native'
 import {
-	categoryLabel,
-	NotificationCard,
-} from './NotificationCard'
+	FlatList,
+	ScrollView,
+	StyleSheet,
+	Text,
+	TouchableOpacity,
+	View,
+} from 'react-native'
 import {
-	getNotifications,
-	subscribeToNotifications,
 	clearNotifications,
 	deleteNotification,
+	getNotifications,
+	subscribeToNotifications,
 } from '../lib/notifications'
-import type { MentionSubCategory, NotificationCategory, NotificationItem } from '../lib/types'
+import { categoryLabel, NotificationCard } from './NotificationCard'
+import type {
+	MentionSubCategory,
+	NotificationCategory,
+	NotificationItem,
+} from '../lib/types'
 
 export default function NotificationCenter({
 	hideHeader = false,
@@ -43,7 +51,7 @@ export default function NotificationCenter({
 	const notifications = getNotifications()
 
 	const displayedNotifications = React.useMemo(() => {
-		const filtered = notifications.filter((n) => {
+		const filtered = notifications.filter(n => {
 			if (currentCategory === 'mentions') {
 				if (n.category !== 'mentions') return false
 				if (currentMentionFilter === 'all') return true
@@ -69,7 +77,9 @@ export default function NotificationCenter({
 						<View style={{ flex: 1 }} />
 					)}
 					{displayedNotifications.length > 0 && (
-						<TouchableOpacity onPress={() => clearNotifications(currentCategory)}>
+						<TouchableOpacity
+							onPress={() => clearNotifications(currentCategory)}
+						>
 							<Text style={styles.clearButtonText}>
 								Clear {categoryLabel(currentCategory)}
 							</Text>
@@ -83,19 +93,27 @@ export default function NotificationCenter({
 				<FlatList
 					horizontal
 					data={categories}
-					keyExtractor={(cat) => cat}
+					keyExtractor={cat => cat}
 					showsHorizontalScrollIndicator={false}
 					keyboardShouldPersistTaps="handled"
 					contentContainerStyle={styles.pillsContainer}
-					renderItem={({ item: cat, index: idx }: { item: NotificationCategory; index: number }) => {
+					renderItem={({
+						item: cat,
+						index: idx,
+					}: {
+						item: NotificationCategory
+						index: number
+					}) => {
 						const active = activeTabIdx === idx
-						const count = notifications.filter((n) => n.category === cat).length
+						const count = notifications.filter(n => n.category === cat).length
 						return (
 							<TouchableOpacity
 								style={[styles.pill, active && styles.activePill]}
 								onPress={() => setActiveTabIdx(idx)}
 							>
-								<Text style={[styles.pillText, active && styles.activePillText]}>
+								<Text
+									style={[styles.pillText, active && styles.activePillText]}
+								>
 									{categoryLabel(cat)}
 									{count > 0 ? ` (${count})` : ''}
 								</Text>
@@ -135,7 +153,7 @@ export default function NotificationCenter({
 			{/* Notification List */}
 			<FlatList
 				data={displayedNotifications}
-				keyExtractor={(item) => item.id}
+				keyExtractor={item => item.id}
 				contentContainerStyle={styles.feed}
 				renderItem={({ item }: { item: NotificationItem }) => (
 					<NotificationCard
@@ -146,7 +164,8 @@ export default function NotificationCenter({
 				ListEmptyComponent={
 					<View style={styles.emptyContainer}>
 						<Text style={styles.emptyText}>
-							No {categoryLabel(currentCategory).toLowerCase()} notifications found.
+							No {categoryLabel(currentCategory).toLowerCase()} notifications
+							found.
 						</Text>
 					</View>
 				}

@@ -1,10 +1,11 @@
-import type { JsonStorage } from '@revenge-mod/json-storage'
-import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
 import {
-	DEFAULT_STORAGE,
-	type YouBarPlusStorage,
-} from '../lib/types'
+	findByImportedPath,
+	waitForImportedPath,
+} from '../../../shared/finders'
 import { getYouBarStorage } from '../lib/storage'
+import { DEFAULT_STORAGE } from '../lib/types'
+import type { JsonStorage } from '@revenge-mod/json-storage'
+import type { YouBarPlusStorage } from '../lib/types'
 
 const getCurrentStorage = (): YouBarPlusStorage => ({
 	...DEFAULT_STORAGE,
@@ -15,9 +16,14 @@ export const syncConstants = () => {
 	let c: any
 	try {
 		c =
-			findByImportedPath('modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx') ??
+			findByImportedPath(
+				'modules/main_tabs_v2/native/you_bar/YouBarConstants.tsx',
+			) ??
 			revenge.modules.finders.lookupModule(
-				revenge.modules.finders.filters.withProps('YOU_BAR_HEIGHT', 'YOU_BAR_PADDING'),
+				revenge.modules.finders.filters.withProps(
+					'YOU_BAR_HEIGHT',
+					'YOU_BAR_PADDING',
+				),
 			)?.[0]
 	} catch {}
 
@@ -42,7 +48,8 @@ export default function patchCompactYou(
 
 	const patchHeaderComponent = (mod: any) => {
 		const target = mod?.default ?? mod
-		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (!target || (typeof target !== 'function' && typeof target !== 'object'))
+			return
 		if (patchedTargets.has(target)) return
 		patchedTargets.add(target)
 
@@ -86,7 +93,8 @@ export default function patchCompactYou(
 
 	const patchYouBarAvatar = (mod: any) => {
 		const target = mod?.default ?? mod
-		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (!target || (typeof target !== 'function' && typeof target !== 'object'))
+			return
 		if (patchedTargets.has(target)) return
 		patchedTargets.add(target)
 
@@ -132,7 +140,8 @@ export default function patchCompactYou(
 
 	const patchYouName = (mod: any) => {
 		const target = mod?.default ?? mod
-		if (!target || (typeof target !== 'function' && typeof target !== 'object')) return
+		if (!target || (typeof target !== 'function' && typeof target !== 'object'))
+			return
 		if (patchedTargets.has(target)) return
 		patchedTargets.add(target)
 
@@ -174,7 +183,12 @@ export default function patchCompactYou(
 		if (patchedTargets.has(target)) return
 		patchedTargets.add(target)
 
-		const prop = typeof target === 'function' ? 'default' : typeof target.default === 'function' ? 'default' : undefined
+		const prop =
+			typeof target === 'function'
+				? 'default'
+				: typeof target.default === 'function'
+					? 'default'
+					: undefined
 		const holder = prop === 'default' && target.default ? target : m
 
 		if (holder && typeof holder.default === 'function') {
@@ -204,7 +218,7 @@ export default function patchCompactYou(
 		for (const p of headerPaths) {
 			const mod = findByImportedPath(p)
 			if (mod) patchHeaderComponent(mod)
-			const unsub = waitForImportedPath(p, (m) => patchHeaderComponent(m))
+			const unsub = waitForImportedPath(p, m => patchHeaderComponent(m))
 			if (unsub) cleanups.push(unsub)
 		}
 
@@ -216,7 +230,7 @@ export default function patchCompactYou(
 		for (const p of avatarPaths) {
 			const mod = findByImportedPath(p)
 			if (mod) patchYouBarAvatar(mod)
-			const unsub = waitForImportedPath(p, (m) => patchYouBarAvatar(m))
+			const unsub = waitForImportedPath(p, m => patchYouBarAvatar(m))
 			if (unsub) cleanups.push(unsub)
 		}
 
@@ -224,7 +238,7 @@ export default function patchCompactYou(
 		const namePath = 'modules/main_tabs_v2/native/you_bar/YouBarName.tsx'
 		const nameMod = findByImportedPath(namePath)
 		if (nameMod) patchYouName(nameMod)
-		const unsubNamePath = waitForImportedPath(namePath, (m) => patchYouName(m))
+		const unsubNamePath = waitForImportedPath(namePath, m => patchYouName(m))
 		if (unsubNamePath) cleanups.push(unsubNamePath)
 
 		// 4. Activity status experiments & components
@@ -235,7 +249,7 @@ export default function patchCompactYou(
 		for (const p of statusPaths) {
 			const mod = findByImportedPath(p)
 			if (mod) patchActivityModule(mod)
-			const unsub = waitForImportedPath(p, (m) => patchActivityModule(m))
+			const unsub = waitForImportedPath(p, m => patchActivityModule(m))
 			if (unsub) cleanups.push(unsub)
 		}
 	}

@@ -1,11 +1,11 @@
-import type { NotificationItem } from '../lib/types'
 import {
 	copyToClipboard,
-	showToast,
 	navigateToChannel,
 	navigateToGuild,
 	openUserProfile,
+	showToast,
 } from '../lib/navigation'
+import type { NotificationItem } from '../lib/types'
 
 export function openNotificationContextMenu({
 	item,
@@ -64,7 +64,11 @@ export function openNotificationContextMenu({
 										}
 										onPress={() => {
 											actions.hideActionSheet()
-											navigateToChannel(item.guildId, item.channelId, item.messageId)
+											navigateToChannel(
+												item.guildId,
+												item.channelId,
+												item.messageId,
+											)
 										}}
 									/>
 								)}

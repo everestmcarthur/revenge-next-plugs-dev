@@ -1,9 +1,12 @@
-import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
-import type { JsonStorage } from '@revenge-mod/json-storage'
-import { type YouBarPlusStorage } from '../lib/types'
+import {
+	findByImportedPath,
+	waitForImportedPath,
+} from '../../../shared/finders'
 import { getYouBarStorage } from '../lib/storage'
+import type { JsonStorage } from '@revenge-mod/json-storage'
+import type { YouBarPlusStorage } from '../lib/types'
 
-let cachedFastListInstance: any = null
+const cachedFastListInstance: any = null
 
 export function requestGuildsBarUpdate() {
 	if (cachedFastListInstance?.forceUpdate) {
@@ -51,12 +54,14 @@ export default function patchHideBuiltinDm(
 	}
 
 	try {
-		const mod = findByImportedPath('modules/guilds_bar/native/GuildsBarMessages.tsx')
+		const mod = findByImportedPath(
+			'modules/guilds_bar/native/GuildsBarMessages.tsx',
+		)
 		if (mod) patchGuildsBarMessages(mod)
 
 		const unsub = waitForImportedPath(
 			'modules/guilds_bar/native/GuildsBarMessages.tsx',
-			(m) => {
+			m => {
 				if (m) patchGuildsBarMessages(m)
 			},
 		)
@@ -69,46 +74,52 @@ export default function patchHideBuiltinDm(
 		const target = mod
 		const key = 'default'
 		try {
-			const unpatch = revenge.patcher.after(
-				target,
-				key,
-				(res: any) => {
-					if (!res?.listDataProps || !shouldHideBuiltinDm()) return res
-					const sections = res.listDataProps.sections
-					// Only modify if there are multiple sections and section 0 has exactly 1 item (the DM icon)
-					if (Array.isArray(sections) && sections.length > 1 && sections[0] === 1) {
-						res.listDataProps.sections = [0, ...sections.slice(1)]
+			const unpatch = revenge.patcher.after(target, key, (res: any) => {
+				if (!res?.listDataProps || !shouldHideBuiltinDm()) return res
+				const sections = res.listDataProps.sections
+				// Only modify if there are multiple sections and section 0 has exactly 1 item (the DM icon)
+				if (
+					Array.isArray(sections) &&
+					sections.length > 1 &&
+					sections[0] === 1
+				) {
+					res.listDataProps.sections = [0, ...sections.slice(1)]
+				}
+				const origItemSize = res.listDataProps.itemSize
+				if (typeof origItemSize === 'function' && !origItemSize.__ybPatched) {
+					const patched = (s: number, i: number) => {
+						if (s === 0 && shouldHideBuiltinDm()) return 0
+						return origItemSize(s, i)
 					}
-					const origItemSize = res.listDataProps.itemSize
-					if (typeof origItemSize === 'function' && !origItemSize.__ybPatched) {
-						const patched = (s: number, i: number) => {
-							if (s === 0 && shouldHideBuiltinDm()) return 0
-							return origItemSize(s, i)
-						}
-						;(patched as any).__ybPatched = true
-						res.listDataProps.itemSize = patched
+					;(patched as any).__ybPatched = true
+					res.listDataProps.itemSize = patched
+				}
+				const origSectionSize = res.listDataProps.sectionSize
+				if (
+					typeof origSectionSize === 'function' &&
+					!origSectionSize.__ybPatched
+				) {
+					const patched = (s: number) => {
+						if (s === 0 && shouldHideBuiltinDm()) return 0
+						return origSectionSize(s)
 					}
-					const origSectionSize = res.listDataProps.sectionSize
-					if (typeof origSectionSize === 'function' && !origSectionSize.__ybPatched) {
-						const patched = (s: number) => {
-							if (s === 0 && shouldHideBuiltinDm()) return 0
-							return origSectionSize(s)
-						}
-						;(patched as any).__ybPatched = true
-						res.listDataProps.sectionSize = patched
+					;(patched as any).__ybPatched = true
+					res.listDataProps.sectionSize = patched
+				}
+				const origRenderItem = res.listDataProps.renderItem
+				if (
+					typeof origRenderItem === 'function' &&
+					!origRenderItem.__ybPatched
+				) {
+					const patched = (s: number, i: number) => {
+						if (s === 0 && shouldHideBuiltinDm()) return null
+						return origRenderItem(s, i)
 					}
-					const origRenderItem = res.listDataProps.renderItem
-					if (typeof origRenderItem === 'function' && !origRenderItem.__ybPatched) {
-						const patched = (s: number, i: number) => {
-							if (s === 0 && shouldHideBuiltinDm()) return null
-							return origRenderItem(s, i)
-						}
-						;(patched as any).__ybPatched = true
-						res.listDataProps.renderItem = patched
-					}
-					return res
-				},
-			)
+					;(patched as any).__ybPatched = true
+					res.listDataProps.renderItem = patched
+				}
+				return res
+			})
 			cleanups.push(unpatch)
 		} catch (e) {
 			console.error('[YouBar+] Error patching useGuildsBarProps:', e)
@@ -116,12 +127,14 @@ export default function patchHideBuiltinDm(
 	}
 
 	try {
-		const mod = findByImportedPath('modules/guilds_bar/native/hooks/useGuildsBarProps.tsx')
+		const mod = findByImportedPath(
+			'modules/guilds_bar/native/hooks/useGuildsBarProps.tsx',
+		)
 		if (mod) patchUseGuildsBarProps(mod)
 
 		const unsub = waitForImportedPath(
 			'modules/guilds_bar/native/hooks/useGuildsBarProps.tsx',
-			(m) => {
+			m => {
 				if (m) patchUseGuildsBarProps(m)
 			},
 		)
@@ -138,7 +151,11 @@ export default function patchHideBuiltinDm(
 			if (!node) return
 			if (node.props?.nativeID === 'guilds-bar-fast-list') {
 				if (shouldHideBuiltinDm()) {
-					if (Array.isArray(node.props.sections) && node.props.sections.length > 1 && node.props.sections[0] === 1) {
+					if (
+						Array.isArray(node.props.sections) &&
+						node.props.sections.length > 1 &&
+						node.props.sections[0] === 1
+					) {
 						node.props.sections = [0, ...node.props.sections.slice(1)]
 					}
 					const origItemSize = node.props.itemSize
@@ -161,14 +178,10 @@ export default function patchHideBuiltinDm(
 		}
 
 		try {
-			const unpatch = revenge.patcher.after(
-				target,
-				key as any,
-				(res: any) => {
-					patchFastListNode(res)
-					return res
-				},
-			)
+			const unpatch = revenge.patcher.after(target, key as any, (res: any) => {
+				patchFastListNode(res)
+				return res
+			})
 			cleanups.push(unpatch)
 		} catch (e) {
 			console.error('[YouBar+] Error patching GuildsBar:', e)
@@ -181,7 +194,7 @@ export default function patchHideBuiltinDm(
 
 		const unsub = waitForImportedPath(
 			'modules/guilds_bar/native/GuildsBar.tsx',
-			(m) => {
+			m => {
 				if (m) patchGuildsBar(m)
 			},
 		)

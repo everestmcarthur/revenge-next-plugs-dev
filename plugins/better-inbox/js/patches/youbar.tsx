@@ -1,9 +1,12 @@
-import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
+import {
+	findByImportedPath,
+	waitForImportedPath,
+} from '../../../shared/finders'
+import NotificationCenter from '../ui/NotificationCenter'
 import type { JsonStorage } from '@revenge-mod/json-storage'
 import type { BetterInboxStorage } from '../lib/types'
-import NotificationCenter from '../ui/NotificationCenter'
 
-let updateCallbacks: Array<() => void> = []
+const updateCallbacks: Array<() => void> = []
 
 export function requestYouBarUpdate() {
 	for (const cb of updateCallbacks) {
@@ -18,12 +21,21 @@ export function openNotificationCenter() {
 		const everest = (globalThis as any).__everest ?? (revenge as any)?.everest
 		const { filters, lookupModule } = revenge.modules.finders
 
-		const Navigation = everest?.getNavigation?.() ?? lookupModule(filters.withProps('push', 'pushLazy', 'pop'))?.[0]
-		const Navigator = everest?.getNavigator?.() ?? lookupModule(filters.withProps('Navigator'))?.[0]?.Navigator
-		const modalClose = everest?.getModalCloseButton ?? lookupModule(filters.withProps('getHeaderCloseButton', 'getRenderCloseButton'))?.[0]
-		const closeBtn = typeof modalClose === 'function'
-			? modalClose
-			: (modalClose?.getHeaderCloseButton ?? modalClose?.getRenderCloseButton)
+		const Navigation =
+			everest?.getNavigation?.() ??
+			lookupModule(filters.withProps('push', 'pushLazy', 'pop'))?.[0]
+		const Navigator =
+			everest?.getNavigator?.() ??
+			lookupModule(filters.withProps('Navigator'))?.[0]?.Navigator
+		const modalClose =
+			everest?.getModalCloseButton ??
+			lookupModule(
+				filters.withProps('getHeaderCloseButton', 'getRenderCloseButton'),
+			)?.[0]
+		const closeBtn =
+			typeof modalClose === 'function'
+				? modalClose
+				: (modalClose?.getHeaderCloseButton ?? modalClose?.getRenderCloseButton)
 
 		// 1. Primary: Full-Screen Page Navigation
 		if (Navigation?.push && Navigator) {
@@ -38,8 +50,10 @@ export function openNotificationCenter() {
 						screens={{
 							BetterInbox: {
 								title: 'Inbox',
-								headerLeft: closeBtn ? closeBtn(() => Navigation.pop()) : undefined,
-								render: () => Page ? <Page>{Content}</Page> : Content,
+								headerLeft: closeBtn
+									? closeBtn(() => Navigation.pop())
+									: undefined,
+								render: () => (Page ? <Page>{Content}</Page> : Content),
 							},
 						}}
 					/>
@@ -54,8 +68,11 @@ export function openNotificationCenter() {
 			actions.openLazy(
 				Promise.resolve({
 					default: () => {
-						const { ActionSheet, BottomSheetTitleHeader, ActionSheetCloseButton } =
-							(revenge.discord?.design?.Design ?? {}) as any
+						const {
+							ActionSheet,
+							BottomSheetTitleHeader,
+							ActionSheetCloseButton,
+						} = (revenge.discord?.design?.Design ?? {}) as any
 						return (
 							<ActionSheet>
 								<BottomSheetTitleHeader
@@ -74,7 +91,6 @@ export function openNotificationCenter() {
 		console.error('[BetterInbox] Failed to open notification center:', e)
 	}
 }
-
 // Make openNotificationCenter globally accessible so YouBar+ can trigger it directly if needed
 ;(globalThis as any).__betterInboxOpen = openNotificationCenter
 
@@ -110,7 +126,10 @@ function transformNotificationElement(el: any): any {
 	return React.cloneElement(el, newProps)
 }
 
-function patchButtonTree(node: any, storage: JsonStorage<BetterInboxStorage>): any {
+function patchButtonTree(
+	node: any,
+	storage: JsonStorage<BetterInboxStorage>,
+): any {
 	if (!node) return node
 	const React = revenge.react.React
 
@@ -154,7 +173,11 @@ function isYouBarNotificationsButton(mod: any): boolean {
 	if (!mod) return false
 	if ((mod as any).__isYouBarNotificationsButton) return true
 	const comp = mod?.YouBarNotificationsButton ?? mod?.default ?? mod
-	if ((comp as any)?.__isYouBarNotificationsButton || (comp as any)?.type?.__isYouBarNotificationsButton) return true
+	if (
+		(comp as any)?.__isYouBarNotificationsButton ||
+		(comp as any)?.type?.__isYouBarNotificationsButton
+	)
+		return true
 	const name =
 		comp?.name ||
 		comp?.displayName ||
@@ -182,32 +205,37 @@ export default function patchYouBarButton(
 			targetModule?.default ??
 			targetModule
 
-		if (!comp || (typeof comp !== 'function' && typeof comp !== 'object')) return
+		if (!comp || (typeof comp !== 'function' && typeof comp !== 'object'))
+			return
 		if (patchedButtonTargets.has(comp)) return
 		patchedButtonTargets.add(comp)
 
 		const isMemo = typeof comp.type === 'function'
-		const target = isMemo ? comp : (typeof targetModule?.default === 'function' ? targetModule : comp)
-		const prop = isMemo ? 'type' : (typeof targetModule?.default === 'function' ? 'default' : 'type')
+		const target = isMemo
+			? comp
+			: typeof targetModule?.default === 'function'
+				? targetModule
+				: comp
+		const prop = isMemo
+			? 'type'
+			: typeof targetModule?.default === 'function'
+				? 'default'
+				: 'type'
 
 		try {
-			const unpatch = revenge.patcher.after(
-				target,
-				prop,
-				(res: any) => {
-					if (!res) return res
-					if (storage.cache?.showYouBarButton === false) {
-						return res
-					}
+			const unpatch = revenge.patcher.after(target, prop, (res: any) => {
+				if (!res) return res
+				if (storage.cache?.showYouBarButton === false) {
+					return res
+				}
 
-					try {
-						return patchButtonTree(res, storage)
-					} catch (err) {
-						console.error('[BetterInbox] Error in button tree transform:', err)
-						return res
-					}
-				},
-			)
+				try {
+					return patchButtonTree(res, storage)
+				} catch (err) {
+					console.error('[BetterInbox] Error in button tree transform:', err)
+					return res
+				}
+			})
 			cleanups.push(unpatch)
 		} catch (e) {
 			console.error('[BetterInbox] Failed to patch YouBar button:', e)
@@ -222,7 +250,7 @@ export default function patchYouBarButton(
 
 		const unsubPath = waitForImportedPath(
 			'modules/main_tabs_v2/native/you_bar/YouBarNotificationsButton.tsx',
-			(m) => {
+			m => {
 				if (m) applyPatch(m)
 			},
 		)
@@ -230,22 +258,48 @@ export default function patchYouBarButton(
 
 		const compFilter = Object.assign(
 			(_id: any, m: any) => isYouBarNotificationsButton(m),
-			{ key: 'name(YouBarNotificationsButton)', scopes: 4 },
+			{
+				key: 'name(YouBarNotificationsButton)',
+				scopes: 4,
+				scope(...scopes: number[]) {
+					const copy = Object.assign(
+						(...args: any[]) => (compFilter as any)(...args),
+						compFilter,
+					)
+					copy.scopes = scopes.reduce((a, b) => a | b, 0)
+					return copy
+				},
+			},
 		)
 
 		const matches = revenge.modules.finders.lookupModule(compFilter as any)
-		if (matches && matches !== revenge.modules.finders.NotFoundResult && matches[0]) {
+		if (
+			matches &&
+			matches !== revenge.modules.finders.NotFoundResult &&
+			matches[0]
+		) {
 			applyPatch(matches[0])
 		}
 
-		const unsubFinders = revenge.modules.finders.getModules(
-			compFilter as any,
-			(m: any) => applyPatch(m),
-			{ cached: true, returnNamespace: true },
-		)
-		if (typeof unsubFinders === 'function') {
-			cleanups.push(unsubFinders)
-		}
+		try {
+			if (typeof revenge.modules.finders?.waitForModules === 'function') {
+				const unsubFinders = revenge.modules.finders.waitForModules(
+					compFilter as any,
+					(m: any) => applyPatch(m),
+				)
+				if (typeof unsubFinders === 'function') {
+					cleanups.push(unsubFinders)
+				}
+			} else if (typeof revenge.modules.finders?.getModules === 'function') {
+				const unsubFinders = revenge.modules.finders.getModules(
+					compFilter as any,
+					(m: any) => applyPatch(m),
+				)
+				if (typeof unsubFinders === 'function') {
+					cleanups.push(unsubFinders)
+				}
+			}
+		} catch {}
 	} catch (e) {
 		console.error('[BetterInbox] Error finding YouBarNotificationsButton:', e)
 	}

@@ -92,7 +92,11 @@ export function openUserProfile(userId: string) {
 	}
 }
 
-export function navigateToChannel(guildId?: string, channelId?: string, messageId?: string) {
+export function navigateToChannel(
+	guildId?: string,
+	channelId?: string,
+	messageId?: string,
+) {
 	try {
 		const router = getTransitionRouter()
 		if (router?.transitionToGuild && channelId) {
@@ -159,7 +163,8 @@ export function getAvatarUrl(author: any): string {
 	const { id, avatar, discriminator } = author
 
 	if (avatar) {
-		const ext = typeof avatar === 'string' && avatar.startsWith('a_') ? 'gif' : 'png'
+		const ext =
+			typeof avatar === 'string' && avatar.startsWith('a_') ? 'gif' : 'png'
 		return `https://cdn.discordapp.com/avatars/${id}/${avatar}.${ext}?size=128`
 	}
 

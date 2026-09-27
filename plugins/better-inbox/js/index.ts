@@ -1,8 +1,9 @@
-import { DEFAULT_STORAGE, type BetterInboxStorage } from './lib/types'
 import { startInboxTracking } from './lib/notifications'
-import patchYouBarButton from './patches/youbar'
+import { DEFAULT_STORAGE } from './lib/types'
 import patchInAppNotifications from './patches/inAppNotifications'
+import patchYouBarButton from './patches/youbar'
 import Settings from './ui/Settings'
+import type { BetterInboxStorage } from './lib/types'
 
 export default plugin<{ jsonStorage: BetterInboxStorage }>({
 	jsonStorage: {
@@ -50,7 +51,9 @@ export default plugin<{ jsonStorage: BetterInboxStorage }>({
 			const unpatchInApp = patchInAppNotifications(api.jsonStorage)
 			cleanups.push(unpatchInApp)
 		} catch (e) {
-			api.logger.error(`[BetterInbox] Error patching in-app notifications: ${e}`)
+			api.logger.error(
+				`[BetterInbox] Error patching in-app notifications: ${e}`,
+			)
 		}
 
 		api.cleanup(() => {

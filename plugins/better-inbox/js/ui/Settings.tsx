@@ -1,24 +1,18 @@
+import { clearNotifications } from '../lib/notifications'
+import { openNotificationCenter } from '../patches/youbar'
 import type { PluginApi } from '@revenge-mod/plugins/types'
 import type { BetterInboxStorage } from '../lib/types'
-import { openNotificationCenter } from '../patches/youbar'
-import { clearNotifications } from '../lib/notifications'
 
 export default function Settings({
 	api,
 }: {
 	api: PluginApi<{ jsonStorage: BetterInboxStorage }>
 }) {
-	const { Page } = revenge.components as typeof import('@revenge-mod/components')
+	const { Page } =
+		revenge.components as typeof import('@revenge-mod/components')
 	const { ScrollView, View } = revenge.react.ReactNative
-	const {
-		TableRowGroup,
-		TableSwitchRow,
-		TableRow,
-		Stack,
-		Card,
-		Text,
-		Button,
-	} = (revenge.discord?.design?.Design ?? {}) as any
+	const { TableRowGroup, TableSwitchRow, TableRow, Stack, Card, Text, Button } =
+		(revenge.discord?.design?.Design ?? {}) as any
 
 	const storage = api.jsonStorage.use()
 
@@ -38,7 +32,8 @@ export default function Settings({
 									color="text-muted"
 									style={{ marginTop: 6 }}
 								>
-									Categorizes mentions, replies, reactions, and thread adds into an organized notification feed.
+									Categorizes mentions, replies, reactions, and thread adds into
+									an organized notification feed.
 								</Text>
 								<View style={{ marginTop: 14 }}>
 									<Button

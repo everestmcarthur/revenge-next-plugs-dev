@@ -1,6 +1,10 @@
-import { findByImportedPath, waitForImportedPath } from '../../../shared/finders'
-import { DEFAULT_STORAGE, type YouBarPlusStorage } from '../lib/types'
+import {
+	findByImportedPath,
+	waitForImportedPath,
+} from '../../../shared/finders'
 import { getYouBarStorage } from '../lib/storage'
+import { DEFAULT_STORAGE } from '../lib/types'
+import type { YouBarPlusStorage } from '../lib/types'
 
 let updateCallbacks: Array<() => void> = []
 
@@ -19,7 +23,11 @@ function isYouBarNotificationsButton(mod: any): boolean {
 	if (!mod) return false
 	if ((mod as any).__isYouBarNotificationsButton) return true
 	const comp = mod?.YouBarNotificationsButton ?? mod?.default ?? mod
-	if ((comp as any)?.__isYouBarNotificationsButton || (comp as any)?.type?.__isYouBarNotificationsButton) return true
+	if (
+		(comp as any)?.__isYouBarNotificationsButton ||
+		(comp as any)?.type?.__isYouBarNotificationsButton
+	)
+		return true
 	const name =
 		comp?.name ||
 		comp?.displayName ||
@@ -77,7 +85,9 @@ function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 	}
 
 	try {
-		const direct = findByImportedPath('modules/user_settings/core/native/openUserSettings.tsx')
+		const direct = findByImportedPath(
+			'modules/user_settings/core/native/openUserSettings.tsx',
+		)
 		const target = direct?.default ?? direct
 		if (
 			typeof target?.openUserSettings === 'function' &&
@@ -94,7 +104,8 @@ function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 			(_id: any, exp: any) => {
 				const t = exp?.default ?? exp
 				if (!t || typeof t !== 'object') return false
-				if (t.$$baseObject || t.$$loader || t.messages || t.defaultLocale) return false
+				if (t.$$baseObject || t.$$loader || t.messages || t.defaultLocale)
+					return false
 				return typeof t.openUserSettings === 'function'
 			},
 			{ key: 'userSettingsAction', scopes: 4 },
@@ -113,17 +124,27 @@ function getUserSettingsRouter(_storage?: JsonStorage<YouBarPlusStorage>) {
 }
 
 let lastDmTapTime = 0
-let lastSavedNonDmLocation: { guildId: string; channelId?: string } | null = null
+let lastSavedNonDmLocation: { guildId: string; channelId?: string } | null =
+	null
 
-export function getCurrentNonDmLocation(): { guildId: string; channelId?: string } | null {
+export function getCurrentNonDmLocation(): {
+	guildId: string
+	channelId?: string
+} | null {
 	try {
 		const guildStore = revenge.modules.finders.lookupModule(
-			revenge.modules.finders.filters.withProps('getGuildId', 'getLastSelectedGuildId'),
+			revenge.modules.finders.filters.withProps(
+				'getGuildId',
+				'getLastSelectedGuildId',
+			),
 		)?.[0]
 		const channelStore =
 			revenge.everest?.getSelectedChannelStore?.() ||
 			revenge.modules.finders.lookupModule(
-				revenge.modules.finders.filters.withProps('getChannelId', 'getLastSelectedChannelId'),
+				revenge.modules.finders.filters.withProps(
+					'getChannelId',
+					'getLastSelectedChannelId',
+				),
 			)?.[0]
 
 		const currentGuildId = guildStore?.getGuildId()
@@ -152,7 +173,10 @@ function handleDmButtonPress(storage?: JsonStorage<YouBarPlusStorage>) {
 		const nonDm = getCurrentNonDmLocation()
 
 		const guildStore = revenge.modules.finders.lookupModule(
-			revenge.modules.finders.filters.withProps('getGuildId', 'getLastSelectedGuildId'),
+			revenge.modules.finders.filters.withProps(
+				'getGuildId',
+				'getLastSelectedGuildId',
+			),
 		)?.[0]
 		const currentGuildId = guildStore?.getGuildId()
 		const isCurrentlyInDms = currentGuildId === '@me' || currentGuildId === null
@@ -199,7 +223,11 @@ export default function patchYouBarButtons(
 			targetModule?.default ??
 			targetModule
 
-		if (!component || (typeof component !== 'function' && typeof component !== 'object')) return
+		if (
+			!component ||
+			(typeof component !== 'function' && typeof component !== 'object')
+		)
+			return
 		if (patchedButtonTargets.has(component)) return
 		patchedButtonTargets.add(component)
 
@@ -210,26 +238,28 @@ export default function patchYouBarButtons(
 			}
 		} catch {}
 
-
 		const isMemo = typeof component.type === 'function'
-		const target = isMemo ? component : (typeof targetModule?.default === 'function' ? targetModule : component)
-		const prop = isMemo ? 'type' : (typeof targetModule?.default === 'function' ? 'default' : 'type')
+		const target = isMemo
+			? component
+			: typeof targetModule?.default === 'function'
+				? targetModule
+				: component
+		const prop = isMemo
+			? 'type'
+			: typeof targetModule?.default === 'function'
+				? 'default'
+				: 'type'
 
 		const unpatch = revenge.patcher.instead(
 			target,
 			prop,
 			(args: any[], OriginalRender: any) => {
-				const [, forceUpdate] = React.useReducer(
-					(x: number) => x + 1,
-					0,
-				)
+				const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
 
 				React.useEffect(() => {
 					updateCallbacks.push(forceUpdate)
 					return () => {
-						updateCallbacks = updateCallbacks.filter(
-							(cb) => cb !== forceUpdate,
-						)
+						updateCallbacks = updateCallbacks.filter(cb => cb !== forceUpdate)
 					}
 				}, [])
 
@@ -249,7 +279,8 @@ export default function patchYouBarButtons(
 				const targetElement = res.props?.children ?? res
 				const DesignIconButton = revenge.discord?.design?.Design?.IconButton
 				const IconButton =
-					(typeof targetElement?.type === 'function' || typeof targetElement?.type === 'object')
+					typeof targetElement?.type === 'function' ||
+					typeof targetElement?.type === 'object'
 						? targetElement.type
 						: DesignIconButton
 				const originalProps = targetElement?.props ?? res?.props ?? {}
@@ -278,7 +309,7 @@ export default function patchYouBarButtons(
 								onPress: () => {
 									handleDmButtonPress(storage)
 								},
-						  })
+							})
 						: null
 
 				const settingsButton =
@@ -297,7 +328,7 @@ export default function patchYouBarButtons(
 										console.error('[YouBar+] Settings button error:', e)
 									}
 								},
-						  })
+							})
 						: null
 
 				const notificationsButton =
@@ -315,9 +346,7 @@ export default function patchYouBarButtons(
 					settings: settingsButton,
 				}
 
-				const renderedButtons = order
-					.map((id) => buttonMap[id])
-					.filter(Boolean)
+				const renderedButtons = order.map(id => buttonMap[id]).filter(Boolean)
 
 				if (renderedButtons.length === 0) return res
 
@@ -333,7 +362,7 @@ export default function patchYouBarButtons(
 									justifyContent: 'flex-end',
 									gap: 4,
 								},
-						  }
+							}
 						: null,
 					...renderedButtons,
 				)
@@ -359,7 +388,18 @@ export default function patchYouBarButtons(
 
 		const filter = Object.assign(
 			(_id: any, exports: any) => isYouBarNotificationsButton(exports),
-			{ key: 'name(YouBarNotificationsButton)', scopes: 4 },
+			{
+				key: 'name(YouBarNotificationsButton)',
+				scopes: 4,
+				scope(...scopes: number[]) {
+					const copy = Object.assign(
+						(...args: any[]) => (filter as any)(...args),
+						filter,
+					)
+					copy.scopes = scopes.reduce((a, b) => a | b, 0)
+					return copy
+				},
+			},
 		)
 
 		const res = revenge.modules.finders.lookupModule(filter as any)
@@ -367,14 +407,25 @@ export default function patchYouBarButtons(
 			applyPatch(res[0], res[1] as number | undefined)
 		}
 
-		const unsub = revenge.modules.finders.getModules(
-			filter as any,
-			(mod, id) => {
-				applyPatch(mod, id as number | undefined)
-			},
-			{ cached: true, returnNamespace: true },
-		)
-		if (typeof unsub === 'function') cleanups.push(unsub)
+		try {
+			if (typeof revenge.modules.finders?.waitForModules === 'function') {
+				const unsub = revenge.modules.finders.waitForModules(
+					filter as any,
+					(mod, id) => {
+						applyPatch(mod, id as number | undefined)
+					},
+				)
+				if (typeof unsub === 'function') cleanups.push(unsub)
+			} else if (typeof revenge.modules.finders?.getModules === 'function') {
+				const unsub = revenge.modules.finders.getModules(
+					filter as any,
+					(mod, id) => {
+						applyPatch(mod, id as number | undefined)
+					},
+				)
+				if (typeof unsub === 'function') cleanups.push(unsub)
+			}
+		} catch {}
 	} catch (e) {
 		console.error('[YouBar+] Error finding YouBarNotificationsButton:', e)
 	}

@@ -1,11 +1,13 @@
-import type { PluginApi } from '@revenge-mod/plugins/types'
 import {
+	DEFAULT_STORAGE,
 	getButtonPosition,
 	setButtonPosition,
-	type YouBarButtonId,
-	type YouBarPosition,
-	type YouBarPlusStorage,
-	DEFAULT_STORAGE,
+} from '../lib/types'
+import type { PluginApi } from '@revenge-mod/plugins/types'
+import type {
+	YouBarButtonId,
+	YouBarPlusStorage,
+	YouBarPosition,
 } from '../lib/types'
 
 function formatButtonName(id: YouBarButtonId): string {
@@ -85,7 +87,7 @@ function openPositionPicker({
 					>
 						<Stack spacing={8} style={{ padding: 16 }}>
 							<TableRowGroup>
-								{options.map((opt) => (
+								{options.map(opt => (
 									<TableRow
 										key={opt.pos}
 										icon={
@@ -120,8 +122,8 @@ export default function Settings({
 	const { Page } =
 		revenge.components as typeof import('@revenge-mod/components')
 	const { ScrollView, View } = revenge.react.ReactNative
-	const { TableRowGroup, TableSwitchRow, TableRow, Stack, Card, Text } =
-		revenge.discord.design.Design as any
+	const { TableRowGroup, TableSwitchRow, TableRow, Stack, Card, Text } = revenge
+		.discord.design.Design as any
 
 	const storage = api.jsonStorage.use()
 
@@ -149,16 +151,14 @@ export default function Settings({
 					<Stack spacing={16}>
 						<Card>
 							<View style={{ padding: 16 }}>
-								<Text variant="heading-md/semibold">
-									YouBar+
-								</Text>
+								<Text variant="heading-md/semibold">YouBar+</Text>
 								<Text
 									variant="text-sm/normal"
 									color="text-muted"
 									style={{ marginTop: 6 }}
 								>
-									Customize the YouBar bottom navigation cluster with
-									Direct Messages, Notifications, and Settings shortcuts.
+									Customize the YouBar bottom navigation cluster with Direct
+									Messages, Notifications, and Settings shortcuts.
 								</Text>
 								<Text
 									variant="text-xs/normal"
@@ -232,8 +232,7 @@ export default function Settings({
 									openPositionPicker({
 										buttonName: 'Direct Messages',
 										currentPosition: dmPos,
-										onSelect: (pos) =>
-											handleSetPosition('dms', pos),
+										onSelect: pos => handleSetPosition('dms', pos),
 									})
 								}
 								arrow
@@ -250,8 +249,7 @@ export default function Settings({
 									openPositionPicker({
 										buttonName: 'Notifications',
 										currentPosition: notifPos,
-										onSelect: (pos) =>
-											handleSetPosition('notifications', pos),
+										onSelect: pos => handleSetPosition('notifications', pos),
 									})
 								}
 								arrow
@@ -268,8 +266,7 @@ export default function Settings({
 									openPositionPicker({
 										buttonName: 'Settings',
 										currentPosition: settingsPos,
-										onSelect: (pos) =>
-											handleSetPosition('settings', pos),
+										onSelect: pos => handleSetPosition('settings', pos),
 									})
 								}
 								arrow

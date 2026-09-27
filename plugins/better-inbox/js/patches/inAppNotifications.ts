@@ -12,7 +12,8 @@ export default function patchInAppNotifications(
 
 		const patchNotificationManager = (mod: any) => {
 			const target = mod?.default ?? mod
-			if (!target || typeof target !== 'object' || patchedTargets.has(target)) return
+			if (!target || typeof target !== 'object' || patchedTargets.has(target))
+				return
 			patchedTargets.add(target)
 
 			if (typeof target.showNotification === 'function') {
@@ -47,7 +48,10 @@ export default function patchInAppNotifications(
 					)
 					cleanups.push(unpatchSound)
 				} catch (e) {
-					console.error('[BetterInbox] Failed to patch playNotificationSound:', e)
+					console.error(
+						'[BetterInbox] Failed to patch playNotificationSound:',
+						e,
+					)
 				}
 			}
 		}
@@ -59,7 +63,7 @@ export default function patchInAppNotifications(
 		}
 
 		try {
-			const unsub = getModules(notifFilter, (m) => patchNotificationManager(m), {
+			const unsub = getModules(notifFilter, m => patchNotificationManager(m), {
 				cached: true,
 				returnNamespace: true,
 			})
