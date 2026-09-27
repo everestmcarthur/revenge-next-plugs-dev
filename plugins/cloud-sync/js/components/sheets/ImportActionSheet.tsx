@@ -27,30 +27,29 @@ export default function ImportActionSheet({
 }) {
 	const fonts = getFonts()
 	const has = {
-		unproxiedPlugins: Object.keys(data?.plugins ?? {}).filter(
-			id => !(plugins as any)[id] && !isPluginProxied(id) && canImport(id),
-		).length,
-		plugins: Object.keys(data?.plugins ?? {}).filter(
-			id => !(plugins as any)[id] && isPluginProxied(id) && canImport(id),
-		).length,
-		themes: Object.keys(data?.themes ?? {}).filter(id => !(themes as any)[id])
-			.length,
+		plugins: Object.keys(data?.plugins ?? {}).filter(canImport).length,
+		repos: data?.repos?.length ?? 0,
+		settings: Object.keys(data?.settings ?? {}).length,
+		experiments: Object.keys(data?.experiments ?? {}).length,
+		themes: Object.keys(data?.themes ?? {}).length,
 		fonts:
-			Object.keys(data?.fonts?.installed ?? {}).filter(
-				id => !hasFontBySource(id, fonts),
-			).length +
-			(data?.fonts?.custom ?? []).filter(
-				({ name }: any) => !hasFontByName(name, fonts),
-			).length,
+			Object.keys(data?.fonts?.installed ?? {}).length +
+			(data?.fonts?.custom ?? []).length,
 	}
-	const total = [has.unproxiedPlugins, has.plugins, has.themes].reduce(
-		(x, a) => x + a,
-		0,
-	)
+	const total =
+		has.plugins +
+		has.repos +
+		has.settings +
+		has.experiments +
+		has.themes +
+		has.fonts
+
 	const [options, setOptions] = React.useState<SyncImportOptions>(
 		defOptions ?? {
-			unproxiedPlugins: false,
 			plugins: !!has.plugins,
+			repos: !!has.repos,
+			settings: !!has.settings,
+			experiments: !!has.experiments,
 			themes: !!has.themes,
 			fonts: !!has.fonts,
 		},
@@ -75,8 +74,10 @@ export default function ImportActionSheet({
 	})
 
 	const isImportDisabled =
-		!options.unproxiedPlugins &&
 		!options.plugins &&
+		!options.repos &&
+		!options.settings &&
+		!options.experiments &&
 		!options.themes &&
 		!options.fonts
 
@@ -104,40 +105,18 @@ export default function ImportActionSheet({
 			{FormCheckboxRow ? (
 				<>
 					<FormCheckboxRow
-						label={lang.format('sheet.import_data.unproxied_plugins', {
-							count: String(has.unproxiedPlugins),
+						label={lang.format('sheet.import_data.repos', {
+							count: String(has.repos),
 						})}
-						disabled={!has.unproxiedPlugins}
-						onPress={() => {
-							if (!has.unproxiedPlugins) return
-							if (!options.unproxiedPlugins && !defOptions) {
-								showConfirmationAlert({
-									title: lang.format('alert.unproxied_plugin_warn.title', {}),
-									content: lang.format('alert.unproxied_plugin_warn.body', {}),
-									isDismissable: true,
-									confirmText: lang.format(
-										'alert.unproxied_plugin_warn.confirm',
-										{},
-									),
-									onConfirm: () => {
-										ActionSheet.open(ImportActionSheet, {
-											data,
-											navigation,
-											defOptions: {
-												...options,
-												unproxiedPlugins: true,
-											},
-										})
-									},
-								})
-							} else {
-								setOptions({
-									...options,
-									unproxiedPlugins: !options.unproxiedPlugins,
-								})
-							}
-						}}
-						selected={options.unproxiedPlugins}
+						disabled={!has.repos}
+						onPress={() =>
+							has.repos &&
+							setOptions({
+								...options,
+								repos: !options.repos,
+							})
+						}
+						selected={options.repos}
 					/>
 					<FormCheckboxRow
 						label={lang.format('sheet.import_data.plugins', {
@@ -152,6 +131,34 @@ export default function ImportActionSheet({
 							})
 						}
 						selected={options.plugins}
+					/>
+					<FormCheckboxRow
+						label={lang.format('sheet.import_data.experiments', {
+							count: String(has.experiments),
+						})}
+						disabled={!has.experiments}
+						onPress={() =>
+							has.experiments &&
+							setOptions({
+								...options,
+								experiments: !options.experiments,
+							})
+						}
+						selected={options.experiments}
+					/>
+					<FormCheckboxRow
+						label={lang.format('sheet.import_data.settings', {
+							count: String(has.settings),
+						})}
+						disabled={!has.settings}
+						onPress={() =>
+							has.settings &&
+							setOptions({
+								...options,
+								settings: !options.settings,
+							})
+						}
+						selected={options.settings}
 					/>
 					<FormCheckboxRow
 						label={lang.format('sheet.import_data.themes', {
@@ -185,7 +192,7 @@ export default function ImportActionSheet({
 			) : (
 				<RN.View style={{ padding: 16 }}>
 					<Text color="TEXT_MUTED">
-						Plugins: {has.plugins}, Themes: {has.themes}, Fonts: {has.fonts}
+						Plugins: {has.plugins}, Repos: {has.repos}, Experiments: {has.experiments}, Settings: {has.settings}
 					</Text>
 				</RN.View>
 			)}

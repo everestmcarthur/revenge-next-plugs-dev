@@ -21,3 +21,4 @@ node_modules/
 /scripts/pack-client-utils.mjs
 .wrangler/
 workers/**/bundled/
+worker-configuration.d.ts

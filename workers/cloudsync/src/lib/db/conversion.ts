@@ -6,20 +6,38 @@ import {
 
 import { UserData, validateUserData } from '.'
 
-export const latestDataVersion = 2
+export const latestDataVersion = 3
 
 const brotliCompress = promisify(_brotliCompress)
 const brotliDecompress = promisify(_brotliDecompress)
 
 const noInvalidChars = /[\n\x00\x01]/g
 
-export function reconstruct(data: string) {
+export function reconstruct(data: string): UserData | undefined {
+	if (data.startsWith('3\n')) {
+		try {
+			return JSON.parse(data.slice(2))
+		} catch {
+			return undefined
+		}
+	}
+	if (data.startsWith('{')) {
+		try {
+			return JSON.parse(data)
+		} catch {
+			return undefined
+		}
+	}
+
 	const [version, plugins, themes, installedFonts, customFonts, ...incorrect] =
 		data.split('\n')
-	if (incorrect.length > 1 || version !== String(latestDataVersion)) return
+	if (incorrect.length > 1 || (version !== '2' && version !== '3')) return
 
 	const dataObj: UserData = {
 		plugins: {},
+		repos: [],
+		settings: {},
+		experiments: {},
 		themes: {},
 		fonts: {
 			installed: {},
@@ -27,75 +45,72 @@ export function reconstruct(data: string) {
 		},
 	}
 
-	for (const plugin of plugins.split('\x01')) {
-		const stuff = plugin.split('\x00')
-		const url = stuff[0]
-		if (!url) continue
-		let [enabled, storage] = stuff.slice(1)
+	if (plugins) {
+		for (const plugin of plugins.split('\x01')) {
+			const stuff = plugin.split('\x00')
+			const url = stuff[0]
+			if (!url) continue
+			let [enabled, storage] = stuff.slice(1)
 
-		if (enabled && enabled !== '1') {
-			storage = enabled
-			enabled = ''
-		}
+			if (enabled && enabled !== '1') {
+				storage = enabled
+				enabled = ''
+			}
 
-		try {
-			new URL(url)
-			if (storage) JSON.parse(storage)
-		} catch {
-			continue
-		}
+			if (storage) {
+				try {
+					JSON.parse(storage)
+				} catch {
+					// retain storage if non-empty or default to empty
+				}
+			}
 
-		dataObj.plugins[url] = {
-			enabled: Boolean(enabled),
-			storage: storage || '{}',
-		}
-	}
-
-	for (const font of customFonts.split('\x01')) {
-		const [spec, src, enabled] = font.split('\x00')
-		if (Number.isNaN(Number(spec)) || !src) continue
-
-		let raw: object
-		try {
-			raw = JSON.parse(src) as object
-		} catch {
-			continue
-		}
-
-		dataObj.fonts.custom.push({
-			spec: Number(spec),
-			enabled: enabled === '1',
-			...raw,
-		})
-	}
-
-	for (const theme of themes.split('\x01')) {
-		const [url, enabled] = theme.split('\x00')
-		if (!url) continue
-
-		try {
-			new URL(url)
-		} catch {
-			continue
-		}
-
-		dataObj.themes[url] = {
-			enabled: enabled === '1',
+			dataObj.plugins[url] = {
+				enabled: Boolean(enabled),
+				storage: storage || '{}',
+			}
 		}
 	}
 
-	for (const font of installedFonts.split('\x01')) {
-		const [url, enabled] = font.split('\x00')
-		if (!url) continue
+	if (customFonts) {
+		for (const font of customFonts.split('\x01')) {
+			const [spec, src, enabled] = font.split('\x00')
+			if (Number.isNaN(Number(spec)) || !src) continue
 
-		try {
-			new URL(url)
-		} catch {
-			continue
+			let raw: object
+			try {
+				raw = JSON.parse(src) as object
+			} catch {
+				continue
+			}
+
+			dataObj.fonts!.custom.push({
+				spec: Number(spec),
+				enabled: enabled === '1',
+				...raw,
+			})
 		}
+	}
 
-		dataObj.fonts.installed[url] = {
-			enabled: enabled === '1',
+	if (themes) {
+		for (const theme of themes.split('\x01')) {
+			const [url, enabled] = theme.split('\x00')
+			if (!url) continue
+
+			dataObj.themes![url] = {
+				enabled: enabled === '1',
+			}
+		}
+	}
+
+	if (installedFonts) {
+		for (const font of installedFonts.split('\x01')) {
+			const [url, enabled] = font.split('\x00')
+			if (!url) continue
+
+			dataObj.fonts!.installed[url] = {
+				enabled: enabled === '1',
+			}
 		}
 	}
 
@@ -104,76 +119,7 @@ export function reconstruct(data: string) {
 
 export function deconstruct(data: UserData) {
 	if (!validateUserData(data)) throw new Error('Invalid UserData')
-
-	const chunks = new Array<string>()
-	chunks.push(String(latestDataVersion)) // data version, used for major data structure changes
-
-	const pluginChunks = new Array<string>()
-	const themeChunks = new Array<string>()
-	const installedFontChunks = new Array<string>()
-	const customFontChunks = new Array<string>()
-
-	// PLUGINS
-	for (const url of Object.keys(data.plugins)) {
-		const { enabled, storage } = data.plugins[url]
-		const subChunks = new Array<string>()
-
-		subChunks.push(url.replace(noInvalidChars, ''))
-		if (enabled) subChunks.push('1')
-
-		const dt = storage && (JSON.parse(storage) as object)
-		if (dt && Boolean(Object.keys(dt).length)) {
-			subChunks.push(JSON.stringify(dt).replace(noInvalidChars, ''))
-		}
-
-		pluginChunks.push(subChunks.join('\x00'))
-	}
-
-	// CUSTOM FONTS
-	for (const font of data.fonts.custom) {
-		const subChunks = new Array<string>()
-
-		const fontData = { ...font }
-		delete fontData.enabled
-		delete fontData.spec
-
-		subChunks.push(String(font.spec))
-		subChunks.push(JSON.stringify(fontData))
-		if (font.enabled) subChunks.push('1')
-
-		customFontChunks.push(subChunks.join('\x00'))
-	}
-
-	// THEMES
-	for (const url of Object.keys(data.themes)) {
-		const enabled = data.themes[url].enabled
-		const subChunks = new Array<string>()
-
-		subChunks.push(url.replace(noInvalidChars, ''))
-		if (enabled) subChunks.push(enabled ? '1' : '0')
-
-		themeChunks.push(subChunks.join('\x00'))
-	}
-
-	// INSTALLED FONTS
-	for (const url of Object.keys(data.fonts.installed)) {
-		const enabled = data.fonts.installed[url].enabled
-		const subChunks = new Array<string>()
-
-		subChunks.push(url.replace(noInvalidChars, ''))
-		if (enabled) subChunks.push('1')
-
-		installedFontChunks.push(subChunks.join('\x00'))
-	}
-
-	chunks.push(
-		pluginChunks.join('\x01'),
-		themeChunks.join('\x01'),
-		installedFontChunks.join('\x01'),
-		customFontChunks.join('\x01'),
-	)
-
-	return chunks.join('\n')
+	return `3\n${JSON.stringify(data)}`
 }
 
 export async function compressData(data: UserData) {

@@ -2,7 +2,10 @@ import { findByProps, findByStoreName } from './vendetta'
 import { FluxDispatcher, ReactNative as RN } from './vendetta'
 import { semanticColors } from './vendetta'
 
-const ThemeStore = findByStoreName('ThemeStore')
+const getThemeStore = () =>
+	(globalThis as any).revenge?.discord?.flux?.Stores?.ThemeStore ??
+	findByStoreName('ThemeStore')
+
 const { triggerHaptic } = findByProps('triggerHaptic') ?? {
 	triggerHaptic: () => {},
 }
@@ -21,16 +24,18 @@ export const { popModal, pushModal } = findByProps('popModal', 'pushModal') ?? {
 	pushModal: () => {},
 }
 
-export const { useThemeContext } = findByProps('useThemeContext') ?? {
-	useThemeContext: () => ({ theme: ThemeStore?.theme ?? 'dark' }),
+export const useThemeContext = () => {
+	const themeStore = getThemeStore()
+	return { theme: themeStore?.theme ?? 'dark' }
 }
 
 export function resolveSemanticColor(
 	color: any,
-	theme: string = ThemeStore?.theme ?? 'dark',
+	theme?: string,
 ) {
+	const currentTheme = theme ?? getThemeStore()?.theme ?? 'dark'
 	return (
-		(color && colorResolver?.resolveSemanticColor?.(theme, color)) || '#000000'
+		(color && colorResolver?.resolveSemanticColor?.(currentTheme, color)) || '#000000'
 	)
 }
 

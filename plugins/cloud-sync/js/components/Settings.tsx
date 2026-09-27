@@ -80,6 +80,7 @@ export default function Settings() {
 						alignItems: 'center',
 						justifyContent: 'center',
 						marginVertical: 8,
+						flexWrap: 'wrap',
 					}}
 				>
 					<DataStat
@@ -87,17 +88,16 @@ export default function Settings() {
 						subtitle={'settings.your_data.plugins'}
 					/>
 					<DataStat
-						count={data ? Object.keys(data.themes).length : '-'}
-						subtitle={'settings.your_data.themes'}
+						count={data?.repos ? data.repos.length : '-'}
+						subtitle={'settings.your_data.repos'}
 					/>
 					<DataStat
-						count={
-							data
-								? Object.keys(data.fonts.installed).length +
-									data.fonts.custom.length
-								: '-'
-						}
-						subtitle={'settings.your_data.fonts'}
+						count={data?.experiments ? Object.keys(data.experiments).length : '-'}
+						subtitle={'settings.your_data.experiments'}
+					/>
+					<DataStat
+						count={data?.settings ? Object.keys(data.settings).length : '-'}
+						subtitle={'settings.your_data.settings'}
 					/>
 				</RN.View>
 				{at && (

@@ -18,6 +18,7 @@ export const findByName = (name: string, defaultExp?: boolean) =>
 	g.revenge?.discord?.utils?.modules?.finders?.findByName?.(name, defaultExp)
 
 export const findByStoreName = (name: string) =>
+	g.revenge?.discord?.flux?.Stores?.[name] ??
 	getMetro().findByStoreName?.(name) ??
 	g.revenge?.discord?.utils?.modules?.finders?.findByStoreName?.(name)
 
@@ -98,7 +99,39 @@ export const getAssetIDByName = (name: string) =>
 export const plugins = new Proxy(
 	{},
 	{
-		get: (_, p) => getVendetta().plugins?.[p],
+		get: (_, p) => {
+			if (typeof p === 'string') {
+				const pList = g.revenge?.hidden?.plugins?.internal?.pList
+				if (pList instanceof Map && pList.has(p)) return pList.get(p)
+			}
+			return getVendetta().plugins?.[p]
+		},
+		has: (_, p) => {
+			if (typeof p === 'string') {
+				const pList = g.revenge?.hidden?.plugins?.internal?.pList
+				if (pList instanceof Map && pList.has(p)) return true
+			}
+			return p in (getVendetta().plugins ?? {})
+		},
+		ownKeys: () => {
+			const pList = g.revenge?.hidden?.plugins?.internal?.pList
+			if (pList instanceof Map) {
+				return Array.from(pList.keys())
+			}
+			return Object.keys(getVendetta().plugins ?? {})
+		},
+		getOwnPropertyDescriptor: (_, p) => {
+			const pList = g.revenge?.hidden?.plugins?.internal?.pList
+			if (pList instanceof Map && pList.has(p)) {
+				return {
+					configurable: true,
+					enumerable: true,
+					value: pList.get(p),
+					writable: true,
+				}
+			}
+			return Object.getOwnPropertyDescriptor(getVendetta().plugins ?? {}, p)
+		},
 		set: (_, p, v) => {
 			const target = getVendetta().plugins
 			if (target) target[p] = v
@@ -119,11 +152,34 @@ export const themes = new Proxy(
 	},
 )
 
-export const installPlugin = (id: string, enabled?: boolean) =>
-	getVendetta().plugins?.installPlugin?.(id, enabled)
+export const installPlugin = async (id: string, enabled = true, repoUrl?: string) => {
+	const reposApi = g.revenge?.hidden?.plugins?.repositories
+	const internalApi = g.revenge?.hidden?.plugins?.internal
+	if (reposApi?.planInstall && reposApi?.installFromRepo) {
+		const repoUrls = repoUrl ? [repoUrl] : null
+		const plan = await reposApi.planInstall(id, null, null, repoUrls)
+		await reposApi.installFromRepo(plan)
+		const plugin = internalApi?.pList?.get(id)
+		if (plugin && internalApi?.isPluginEnabled) {
+			const isEnabled = internalApi.isPluginEnabled(plugin)
+			if (enabled && !isEnabled && internalApi.enablePlugin) {
+				await internalApi.enablePlugin(plugin)
+			} else if (!enabled && isEnabled && internalApi.disablePlugin) {
+				await internalApi.disablePlugin(plugin)
+			}
+		}
+		return
+	}
+	return getVendetta().plugins?.installPlugin?.(id, enabled)
+}
 
-export const removePlugin = (id: string) =>
-	getVendetta().plugins?.removePlugin?.(id)
+export const removePlugin = async (id: string) => {
+	const internalApi = g.revenge?.hidden?.plugins?.internal
+	if (typeof internalApi?.uninstallExternalPlugin === 'function') {
+		return await internalApi.uninstallExternalPlugin(id)
+	}
+	return getVendetta().plugins?.removePlugin?.(id)
+}
 
 export const installTheme = (id: string) =>
 	getVendetta().themes?.installTheme?.(id)
@@ -148,9 +204,29 @@ export const storage = new Proxy(
 export const useProxy = (target: any) =>
 	getVendetta().storage?.useProxy?.(target) ?? target
 
-export const createMMKVBackend = (key: string) =>
-	getVendetta().storage?.createMMKVBackend?.(key) ??
-	g.revenge?.storage?.createMMKVBackend?.(key)
+export const createMMKVBackend = (key: string) => ({
+	get: async () => {
+		try {
+			if (g.revenge?.jsonStorage?.getJsonStorage) {
+				return (await g.revenge.jsonStorage.getJsonStorage(key).get()) ?? {}
+			}
+			return (
+				(await getVendetta().storage?.createMMKVBackend?.(key)?.get?.()) ?? {}
+			)
+		} catch {
+			return {}
+		}
+	},
+	set: async (val: any) => {
+		try {
+			if (g.revenge?.jsonStorage?.getJsonStorage) {
+				await g.revenge.jsonStorage.getJsonStorage(key).set(val)
+				return
+			}
+			await getVendetta().storage?.createMMKVBackend?.(key)?.set?.(val)
+		} catch {}
+	},
+})
 
 // Settings
 export const settings = new Proxy(

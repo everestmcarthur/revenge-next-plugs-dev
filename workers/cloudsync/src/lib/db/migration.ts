@@ -1,7 +1,7 @@
 import { logger } from 'lib/logger'
 
 import { saveUserData } from '.'
-import { compressData, latestDataVersion } from './conversion'
+import { compressData, decompressData, latestDataVersion } from './conversion'
 
 interface v1UserData {
 	themes: {
@@ -17,7 +17,7 @@ interface v1UserData {
 
 export interface RawSQLUserData {
 	user: string
-	version: 1 | 2
+	version: 1 | 2 | 3
 	sync: string
 	at: string | null
 }
@@ -34,6 +34,32 @@ export async function migrateUserData(
 		return {
 			data: data.sync,
 			at: data.at || new Date().toISOString(),
+		}
+	} else if (data.version === 2) {
+		try {
+			const decomp = await decompressData(data.sync)
+			const at = new Date().toISOString()
+			if (decomp) {
+				const newData = await compressData(decomp)
+				void onMigrate(data.user, newData, at)
+				return {
+					data: newData,
+					at,
+				}
+			}
+			return {
+				data: data.sync,
+				at: data.at || new Date().toISOString(),
+			}
+		} catch (error) {
+			logger.error(`Data migration from v2 to v${latestDataVersion}`, {
+				userId: data.user,
+				error,
+			})
+			return {
+				data: data.sync,
+				at: data.at || new Date().toISOString(),
+			}
 		}
 	} else if (data.version === 1) {
 		try {

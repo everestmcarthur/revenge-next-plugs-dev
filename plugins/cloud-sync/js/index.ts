@@ -13,7 +13,9 @@ import { debounceSync } from './stuff/http'
 import patcher from './stuff/patcher'
 import { grabEverything } from './stuff/syncStuff'
 
-const UserStore = findByStoreName('UserStore')
+const getUserStore = () =>
+	(globalThis as any).revenge?.discord?.flux?.Stores?.UserStore ??
+	findByStoreName('UserStore')
 
 export const vstorage = storage as {
 	config: {
@@ -55,7 +57,7 @@ const autoSync = async () => {
 	if (!Object.keys(everything.plugins).length) return
 
 	if (JSON.stringify(cache.data) !== JSON.stringify(everything)) {
-		const userId = UserStore?.getCurrentUser()?.id ?? null
+		const userId = getUserStore()?.getCurrentUser()?.id ?? null
 		if (initState.didInit !== userId) {
 			initState.didInit = userId
 			await getData()
@@ -103,6 +105,29 @@ export function onLoad() {
 	}
 
 	try {
+		const pEmitter = (globalThis as any).revenge?.hidden?.plugins?.internal?.pEmitter?.emitter
+		const repoEvents = (globalThis as any).revenge?.hidden?.plugins?.repositories?.repoEvents?.emitter
+
+		if (pEmitter?.on) {
+			pEmitter.on('change', autoSync)
+			patches.push(() => pEmitter.off?.('change', autoSync))
+		}
+		if (repoEvents?.on) {
+			repoEvents.on('change', autoSync)
+			patches.push(() => repoEvents.off?.('change', autoSync))
+		}
+
+		// Experiment overrides listener
+		const dispatcher =
+			(globalThis as any).revenge?.discord?.flux?.Stores?.ExperimentStore?._dispatcher ??
+			(globalThis as any).revenge?.discord?.flux?.Dispatcher
+		if (dispatcher?.subscribe) {
+			const unsubExp = dispatcher.subscribe('EXPERIMENT_OVERRIDE_BUCKET', autoSync)
+			if (typeof unsubExp === 'function') {
+				patches.push(unsubExp)
+			}
+		}
+
 		const pluginEmitter = (plugins as any)?.[emitterSymbol]
 		const themeEmitter = (themes as any)?.[emitterSymbol]
 

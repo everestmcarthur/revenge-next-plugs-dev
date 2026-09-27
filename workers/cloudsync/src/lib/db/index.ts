@@ -2,9 +2,26 @@ import { compressData, decompressData, latestDataVersion } from './conversion'
 import { migrateUserData, RawSQLUserData } from './migration'
 
 export interface UserData {
-	plugins: Record<string, { enabled: boolean; storage?: string }>
-	themes: Record<string, { enabled: boolean }>
-	fonts: {
+	version?: number
+	plugins: Record<
+		string,
+		{
+			enabled: boolean
+			storage?: string
+			repo?: string
+			version?: string
+		}
+	>
+	repos?: Array<{
+		url: string
+		enabled: boolean
+		name?: string
+		description?: string
+	}>
+	settings?: Record<string, any>
+	experiments?: Record<string, any>
+	themes?: Record<string, { enabled: boolean }>
+	fonts?: {
 		installed: Record<string, { enabled: boolean }>
 		custom: Array<Record<string, any>>
 	}
@@ -12,8 +29,7 @@ export interface UserData {
 
 export const validateUserData = (data: any): boolean => {
 	if (!data || typeof data !== 'object') return false
-	if (typeof data.plugins !== 'object' || typeof data.themes !== 'object')
-		return false
+	if (typeof data.plugins !== 'object') return false
 	return true
 }
 
@@ -55,14 +71,30 @@ export async function getUserData(userId: string): Promise<ApiUserData> {
 	const data = await retrieveUserData(userId)
 	if (!data) {
 		return {
-			data: { plugins: {}, themes: {}, fonts: { installed: {}, custom: [] } },
+			data: {
+				version: 3,
+				plugins: {},
+				repos: [],
+				settings: {},
+				experiments: {},
+				themes: {},
+				fonts: { installed: {}, custom: [] },
+			},
 			at: new Date().toISOString(),
 		}
 	}
 
 	const decomp = await decompressData(data.data)
 	return {
-		data: decomp,
+		data: decomp ?? {
+			version: 3,
+			plugins: {},
+			repos: [],
+			settings: {},
+			experiments: {},
+			themes: {},
+			fonts: { installed: {}, custom: [] },
+		},
 		at: data.at,
 	}
 }

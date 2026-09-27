@@ -2,7 +2,9 @@ import { findByStoreName, React } from '../vendetta'
 import { vstorage } from '../index'
 import { fluxSubscribe } from '../types'
 
-const UserStore = findByStoreName('UserStore')
+const getUserStore = () =>
+	(globalThis as any).revenge?.discord?.flux?.Stores?.UserStore ??
+	findByStoreName('UserStore')
 
 export interface AuthorizationState {
 	token: string | undefined
@@ -21,7 +23,7 @@ function getTokens(): Record<string, string | undefined> {
 }
 
 function getCurrentUserId(): string {
-	return UserStore?.getCurrentUser()?.id ?? ''
+	return getUserStore()?.getCurrentUser()?.id ?? ''
 }
 
 const currentState: AuthorizationState = {
