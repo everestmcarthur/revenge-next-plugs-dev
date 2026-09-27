@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "dev.everestmcarthur.zipline",
 	"name": "Zipline",
-	"description": "Uploads attachments and shortens links through a self-hosted Zipline instance with automatic chunking for large files.",
+	"description": "Uploads attachments and shortens links through a self-hosted Zipline instance with automatic chunking and direct large-file bypass.",
 	"author": "Rosie",
 	"icon": "ic_upload",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

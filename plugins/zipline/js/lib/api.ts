@@ -1,7 +1,8 @@
 export const DEFAULT_HOST = 'i.allyapp.cc'
+export const DEFAULT_DIRECT_HOST = 'direct-i.allyapp.cc'
 export const DEFAULT_CHUNK_SIZE_MB = 50
 export const CHUNK_THRESHOLD_BYTES = 90 * 1024 * 1024 // 90 MB (Cloudflare free proxy limit is 100 MB)
-const UPLOAD_TIMEOUT_MS = 60000
+const BASE_UPLOAD_TIMEOUT_MS = 60000
 const CHUNK_TIMEOUT_MS = 180000
 
 export function formatHost(rawHost?: string): string {
@@ -13,7 +14,39 @@ export function getBaseUrl(rawHost?: string): string {
 	return `https://${formatHost(rawHost)}`
 }
 
-export function isExcludedDomain(url: string, rawHost?: string): boolean {
+const EXCLUDED_DOMAINS = [
+	'discord.com',
+	'discordapp.com',
+	'cdn.discordapp.com',
+	'media.discordapp.net',
+	'discord.gg',
+	// GIF & sticker platforms (embedded by Discord)
+	'klipy.com',
+	'tenor.com',
+	'giphy.com',
+	'gfycat.com',
+	'imgur.com',
+	// Rich media / video platforms
+	'youtube.com',
+	'youtu.be',
+	'streamable.com',
+	'tiktok.com',
+	'twitch.tv',
+	'spotify.com',
+	'reddit.com',
+	'redd.it',
+	'twitter.com',
+	'x.com',
+]
+
+const MEDIA_EXTENSION_REGEX =
+	/\.(gif|gifv|webp|png|jpe?g|svg|avif|mp4|webm|mov|mkv|mp3|wav|ogg|flac|m4a)(\?.*)?$/i
+
+export function isExcludedDomain(
+	url: string,
+	rawHost?: string,
+	excludeMedia = true,
+): boolean {
 	let parsed: URL
 	try {
 		parsed = new URL(url)
@@ -21,18 +54,38 @@ export function isExcludedDomain(url: string, rawHost?: string): boolean {
 		return true
 	}
 
-	const host = formatHost(rawHost)
-	const excluded = [
-		'discord.com',
-		'discordapp.com',
-		'cdn.discordapp.com',
-		'media.discordapp.net',
-		'discord.gg',
-		host,
-	]
-	return excluded.some(
-		d => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`),
+	const host = formatHost(rawHost).toLowerCase()
+	const hostname = parsed.hostname.toLowerCase()
+
+	// Exclude configured host & direct variants
+	if (
+		hostname === host ||
+		hostname.endsWith(`.${host}`) ||
+		hostname === `direct-${host}` ||
+		hostname.endsWith(`.direct-${host}`)
+	) {
+		return true
+	}
+
+	// Exclude known platform domains
+	const isExcludedHost = EXCLUDED_DOMAINS.some(
+		d => hostname === d || hostname.endsWith(`.${d}`),
 	)
+	if (isExcludedHost) return true
+
+	if (excludeMedia) {
+		// Exclude direct media files (GIFs, images, videos)
+		if (MEDIA_EXTENSION_REGEX.test(parsed.pathname)) {
+			return true
+		}
+
+		// Exclude GIF search/viewer paths (e.g. klipy.com/gifs/..., tenor.com/view/...)
+		if (/\/(gifs?|view)\//i.test(parsed.pathname)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 export interface UploadedFile {
@@ -174,8 +227,11 @@ export async function uploadChunked(
 
 /**
  * Uploads a file to Zipline.
- * Automatically switches to chunked upload if the file exceeds CHUNK_THRESHOLD_BYTES (90 MB),
- * bypassing Cloudflare's 100 MB proxy limit.
+ * - Slices and chunks uploads > 90 MB when a Blob is available.
+ * - Automatically routes files > 90 MB to direct unproxied endpoints (e.g. direct-i.allyapp.cc)
+ *   to bypass Cloudflare's 100 MB proxy payload limit (413 Payload Too Large).
+ * - Dynamically scales timeout for large files (up to 10 minutes).
+ * - Automatically retries via direct host if Cloudflare returns 413.
  */
 export async function uploadFile(
 	fileUri: string,
@@ -185,6 +241,7 @@ export async function uploadFile(
 	rawHost?: string,
 	knownSize?: number,
 	options?: {
+		directHost?: string
 		chunkUpload?: boolean
 		chunkSizeMb?: number
 		onProgress?: ProgressCallback
@@ -194,51 +251,87 @@ export async function uploadFile(
 
 	const shouldChunk = options?.chunkUpload !== false
 	const chunkSizeMb = options?.chunkSizeMb ?? DEFAULT_CHUNK_SIZE_MB
+	const configuredHost = formatHost(rawHost)
+	const directHost = options?.directHost?.trim()
+		? formatHost(options?.directHost)
+		: configuredHost === DEFAULT_HOST
+			? DEFAULT_DIRECT_HOST
+			: `direct-${configuredHost}`
+
 	let blob: Blob | null = null
 
 	// If chunking is enabled and either the known size exceeds threshold or size is unverified,
-	// resolve the file Blob to check actual size.
+	// attempt to resolve the file Blob to check actual size.
 	if (shouldChunk && (!knownSize || knownSize > CHUNK_THRESHOLD_BYTES)) {
 		try {
 			const res = await fetch(fileUri)
 			blob = await res.blob()
 		} catch {
-			// Blob fetch from URI failed; will fall back to direct FormData upload
+			// Blob fetch from local URI is not supported on this platform runtime
 		}
 	}
 
 	const totalSize = blob?.size ?? knownSize ?? 0
 
-	// Auto-chunk if file is larger than the threshold (90 MB)
+	// If blob is available and exceeds threshold, chunk upload via /api/upload/partial
 	if (shouldChunk && blob && totalSize > CHUNK_THRESHOLD_BYTES) {
 		return uploadChunked(
 			blob,
 			name,
 			type,
 			token,
-			rawHost,
+			configuredHost,
 			chunkSizeMb * 1024 * 1024,
 			options?.onProgress,
 		)
 	}
 
-	// Standard single-part upload for files <= threshold
-	const form = new FormData()
-	form.append('file', {
-		uri: fileUri,
-		name: name || 'file.bin',
-		type: type || 'application/octet-stream',
-	} as any)
-
-	const res = await withTimeout(
-		fetch(`${getBaseUrl(rawHost)}/api/upload`, {
-			method: 'POST',
-			headers: { authorization: token.trim() },
-			body: form,
-		}),
-		UPLOAD_TIMEOUT_MS,
-		'Upload timed out',
+	// Calculate dynamic timeout: 3 seconds per MB, minimum 60s, maximum 10 minutes
+	const timeoutMs = Math.max(
+		BASE_UPLOAD_TIMEOUT_MS,
+		Math.min(600000, Math.ceil((totalSize / (1024 * 1024)) * 3000)),
 	)
+
+	// If the file is known to exceed 90 MB, upload directly through the unproxied direct host
+	// to avoid Cloudflare's 100 MB proxy payload limit (413 Payload Too Large).
+	const targetHost =
+		totalSize > CHUNK_THRESHOLD_BYTES ? directHost : configuredHost
+
+	const doUpload = async (uploadHost: string): Promise<Response> => {
+		const form = new FormData()
+		form.append('file', {
+			uri: fileUri,
+			name: name || 'file.bin',
+			type: type || 'application/octet-stream',
+		} as any)
+
+		return withTimeout(
+			fetch(`https://${uploadHost}/api/upload`, {
+				method: 'POST',
+				headers: { authorization: token.trim() },
+				body: form,
+			}),
+			timeoutMs,
+			`Upload timed out after ${Math.round(timeoutMs / 1000)}s`,
+		)
+	}
+
+	let res: Response
+	try {
+		res = await doUpload(targetHost)
+	} catch (err: any) {
+		// If initial upload to standard host failed and direct host is different, retry via direct host
+		if (targetHost !== directHost) {
+			res = await doUpload(directHost)
+		} else {
+			throw err
+		}
+	}
+
+	// If Cloudflare returned 413 Payload Too Large on the standard host, automatically retry via direct host
+	if (res.status === 413 && targetHost !== directHost) {
+		res = await doUpload(directHost)
+	}
 
 	if (!res.ok) {
 		throw new Error(

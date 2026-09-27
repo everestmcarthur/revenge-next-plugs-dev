@@ -96,12 +96,14 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 
 						// 1. Intercept and upload attachments before sending
 						if (wantsUpload) {
-							showToast('Uploading to Zipline…')
-
 							for (let idx = 0; idx < rawAttachments.length; idx++) {
 								const raw = rawAttachments[idx]
 								const { uri, name, type, size } = extractFileInfo(raw)
 								if (!uri) continue
+
+								const sizeMb = size > 0 ? (size / (1024 * 1024)).toFixed(1) : ''
+								const sizeLabel = sizeMb ? ` (${sizeMb} MB)` : ''
+								showToast(`Uploading ${name}${sizeLabel}…`)
 
 								try {
 									const uploaded = await uploadFile(
@@ -112,6 +114,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 										storage.host,
 										size,
 										{
+											directHost: storage.directHost,
 											chunkUpload: storage.chunkUpload !== false,
 											chunkSizeMb: storage.chunkSizeMb,
 											onProgress: progress => {
@@ -161,7 +164,12 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 						if (wantsShorten) {
 							const rawMatches = content.match(URL_REGEX) ?? []
 							const urls = [...new Set(rawMatches)].filter(
-								u => !isExcludedDomain(u, storage.host),
+								u =>
+									!isExcludedDomain(
+										u,
+										storage.host,
+										storage.excludeMediaShorten !== false,
+									),
 							)
 
 							let shortenedCount = 0

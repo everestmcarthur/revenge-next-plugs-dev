@@ -43,6 +43,12 @@ export default function Settings({
 						onChange={(v: string) => api.jsonStorage.set({ host: v })}
 					/>
 					<TextInput
+						label="Direct Upload Host"
+						placeholder="direct-i.allyapp.cc"
+						value={storage?.directHost ?? ''}
+						onChange={(v: string) => api.jsonStorage.set({ directHost: v })}
+					/>
+					<TextInput
 						label="API Token"
 						placeholder="Paste your Zipline token here"
 						value={storage?.token ?? ''}
@@ -62,7 +68,7 @@ export default function Settings({
 					/>
 					<TableSwitchRow
 						label="Auto-chunk large uploads"
-						subLabel="Automatically slice uploads larger than 90 MB into 50 MB chunks to bypass Cloudflare proxy limits (413 Payload Too Large)."
+						subLabel="Automatically slice uploads larger than 90 MB into 50 MB chunks or route through direct host to bypass Cloudflare limits (413 Payload Too Large)."
 						value={storage?.chunkUpload !== false}
 						onValueChange={(v: boolean) =>
 							api.jsonStorage.set({ chunkUpload: v })
@@ -74,6 +80,14 @@ export default function Settings({
 						value={storage?.autoShorten !== false}
 						onValueChange={(v: boolean) =>
 							api.jsonStorage.set({ autoShorten: v })
+						}
+					/>
+					<TableSwitchRow
+						label="Exclude GIFs and media from shortening"
+						subLabel="Preserves Klipy, Tenor, Giphy, and direct image/video links so Discord renders them as animated embeds."
+						value={storage?.excludeMediaShorten !== false}
+						onValueChange={(v: boolean) =>
+							api.jsonStorage.set({ excludeMediaShorten: v })
 						}
 					/>
 				</TableRowGroup>
