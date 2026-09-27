@@ -40,6 +40,35 @@ function extractFileInfo(att: any) {
 	return { uri, name, type, size: Number.isNaN(size) ? 0 : size }
 }
 
+function clearNativeAttachments(args: any[], message: any, options: any) {
+	const strip = (obj: any) => {
+		if (!obj || typeof obj !== 'object') return
+		if (Array.isArray(obj.attachmentsToUpload)) {
+			obj.attachmentsToUpload.length = 0
+		}
+		if (Array.isArray(obj.attachments)) {
+			obj.attachments.length = 0
+		}
+		if (Array.isArray(obj.items)) {
+			obj.items.length = 0
+		}
+		if (Array.isArray(obj.files)) {
+			obj.files.length = 0
+		}
+		if (Array.isArray(obj.uploads)) {
+			obj.uploads.length = 0
+		}
+		obj.attachmentsToUpload = []
+		obj.attachments = []
+	}
+
+	strip(options)
+	strip(message)
+	for (const arg of args) {
+		strip(arg)
+	}
+}
+
 export default plugin<{ jsonStorage: ZiplineStorage }>({
 	jsonStorage: {
 		load: true,
@@ -63,12 +92,14 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 
 		const patchMessageActions = (mod: any) => {
 			const target = mod?.default ?? mod
-			if (!target || typeof target.sendMessage !== 'function') return
+			if (!target) return
 
-			try {
+			const patchMethod = (methodName: 'sendMessage' | '_sendMessage') => {
+				if (typeof target[methodName] !== 'function') return
+
 				const unpatch = revenge.patcher.instead(
 					target,
-					'sendMessage',
+					methodName,
 					async (args: any[], orig: any) => {
 						const storage = api.jsonStorage.cache || DEFAULT_STORAGE
 						const token = storage.token?.trim()
@@ -78,11 +109,39 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 							return orig.apply(target, args)
 						}
 
-						const [_channelId, message, _promise, options] = args
-						let content: string = message?.content ?? ''
+						const message = args[1]
+						if (!message || typeof message !== 'object') {
+							return orig.apply(target, args)
+						}
 
-						const rawAttachments: any[] =
-							options?.attachmentsToUpload ?? options?.attachments ?? []
+						// Guard against recursive processing if sendMessage invokes _sendMessage internally
+						if ((message as any).__ziplineHandled) {
+							return orig.apply(target, args)
+						}
+						;(message as any).__ziplineHandled = true
+
+						// Resolve options object from trailing arguments
+						let options: any = null
+						for (let i = args.length - 1; i >= 1; i--) {
+							if (
+								args[i] &&
+								typeof args[i] === 'object' &&
+								!('then' in args[i])
+							) {
+								options = args[i]
+								break
+							}
+						}
+
+						let content: string = message.content ?? ''
+
+						const rawAttachments: any[] = [
+							...(options?.attachmentsToUpload ?? []),
+							...(options?.attachments ?? []),
+							...(message?.attachmentsToUpload ?? []),
+							...(message?.attachments ?? []),
+						]
+
 						const wantsUpload =
 							storage.autoUpload !== false && rawAttachments.length > 0
 						const wantsShorten =
@@ -136,15 +195,8 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 							}
 
 							if (uploadedUrls.length > 0) {
-								// Strip native attachments so Discord does not upload or send them natively
-								if (options) {
-									if (options.attachmentsToUpload) {
-										options.attachmentsToUpload = []
-									}
-									if (options.attachments) {
-										options.attachments = []
-									}
-								}
+								// Completely strip native attachments so Discord does not send them natively
+								clearNativeAttachments(args, message, options)
 
 								// Append Zipline links into message content
 								const urlsBlock = uploadedUrls.join('\n')
@@ -164,12 +216,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 						if (wantsShorten) {
 							const rawMatches = content.match(URL_REGEX) ?? []
 							const urls = [...new Set(rawMatches)].filter(
-								u =>
-									!isExcludedDomain(
-										u,
-										storage.host,
-										storage.excludeMediaShorten !== false,
-									),
+								u => !isExcludedDomain(u, storage.host),
 							)
 
 							let shortenedCount = 0
@@ -194,9 +241,10 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 					},
 				)
 				cleanups.push(unpatch)
-			} catch (e) {
-				api.logger.error(`${TAG} Failed to patch sendMessage: ${e}`)
 			}
+
+			patchMethod('sendMessage')
+			patchMethod('_sendMessage')
 		}
 
 		// Hook MessageActions via imported path or property filter

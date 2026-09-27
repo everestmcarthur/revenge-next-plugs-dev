@@ -14,39 +14,22 @@ export function getBaseUrl(rawHost?: string): string {
 	return `https://${formatHost(rawHost)}`
 }
 
-const EXCLUDED_DOMAINS = [
+const GIF_DOMAINS = ['klipy.com', 'tenor.com', 'giphy.com', 'gfycat.com']
+
+const DISCORD_DOMAINS = [
 	'discord.com',
 	'discordapp.com',
 	'cdn.discordapp.com',
 	'media.discordapp.net',
 	'discord.gg',
-	// GIF & sticker platforms (embedded by Discord)
-	'klipy.com',
-	'tenor.com',
-	'giphy.com',
-	'gfycat.com',
-	'imgur.com',
-	// Rich media / video platforms
-	'youtube.com',
-	'youtu.be',
-	'streamable.com',
-	'tiktok.com',
-	'twitch.tv',
-	'spotify.com',
-	'reddit.com',
-	'redd.it',
-	'twitter.com',
-	'x.com',
 ]
 
-const MEDIA_EXTENSION_REGEX =
-	/\.(gif|gifv|webp|png|jpe?g|svg|avif|mp4|webm|mov|mkv|mp3|wav|ogg|flac|m4a)(\?.*)?$/i
-
-export function isExcludedDomain(
-	url: string,
-	rawHost?: string,
-	excludeMedia = true,
-): boolean {
+/**
+ * Checks whether a URL should be excluded from auto-shortening.
+ * Only Discord internal domains, Zipline hosts, and GIF providers (Klipy, Tenor, Giphy)
+ * or .gif/.gifv links are excluded, keeping all other URLs included for shortening.
+ */
+export function isExcludedDomain(url: string, rawHost?: string): boolean {
 	let parsed: URL
 	try {
 		parsed = new URL(url)
@@ -67,22 +50,19 @@ export function isExcludedDomain(
 		return true
 	}
 
-	// Exclude known platform domains
-	const isExcludedHost = EXCLUDED_DOMAINS.some(
-		d => hostname === d || hostname.endsWith(`.${d}`),
-	)
-	if (isExcludedHost) return true
+	// Exclude Discord's own domains
+	if (DISCORD_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+		return true
+	}
 
-	if (excludeMedia) {
-		// Exclude direct media files (GIFs, images, videos)
-		if (MEDIA_EXTENSION_REGEX.test(parsed.pathname)) {
-			return true
-		}
+	// Exclude GIF provider platforms
+	if (GIF_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+		return true
+	}
 
-		// Exclude GIF search/viewer paths (e.g. klipy.com/gifs/..., tenor.com/view/...)
-		if (/\/(gifs?|view)\//i.test(parsed.pathname)) {
-			return true
-		}
+	// Exclude direct .gif and .gifv files
+	if (/\.(gif|gifv)(\?.*)?$/i.test(parsed.pathname)) {
+		return true
 	}
 
 	return false

@@ -6,7 +6,6 @@ export interface ZiplineStorage {
 	autoShorten: boolean
 	chunkUpload?: boolean
 	chunkSizeMb?: number
-	excludeMediaShorten?: boolean
 }
 
 export const DEFAULT_STORAGE: ZiplineStorage = {
@@ -17,5 +16,4 @@ export const DEFAULT_STORAGE: ZiplineStorage = {
 	autoShorten: true,
 	chunkUpload: true,
 	chunkSizeMb: 50,
-	excludeMediaShorten: true,
 }

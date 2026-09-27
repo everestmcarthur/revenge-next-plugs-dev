@@ -60,7 +60,7 @@ export default function Settings({
 				<TableRowGroup title="BEHAVIOR">
 					<TableSwitchRow
 						label="Auto-upload attachments"
-						subLabel="After sending attachments, automatically re-uploads to Zipline, replaces the message, and copies the link to clipboard."
+						subLabel="Upload attachments to Zipline, strip Discord native attachments, and append the Zipline link to the message."
 						value={storage?.autoUpload !== false}
 						onValueChange={(v: boolean) =>
 							api.jsonStorage.set({ autoUpload: v })
@@ -68,7 +68,7 @@ export default function Settings({
 					/>
 					<TableSwitchRow
 						label="Auto-chunk large uploads"
-						subLabel="Automatically slice uploads larger than 90 MB into 50 MB chunks or route through direct host to bypass Cloudflare limits (413 Payload Too Large)."
+						subLabel="Route uploads larger than 90 MB through direct host to bypass Cloudflare limits (413 Payload Too Large)."
 						value={storage?.chunkUpload !== false}
 						onValueChange={(v: boolean) =>
 							api.jsonStorage.set({ chunkUpload: v })
@@ -76,18 +76,10 @@ export default function Settings({
 					/>
 					<TableSwitchRow
 						label="Auto-shorten links"
-						subLabel="After sending a message with links, automatically shortens them via your Zipline instance."
+						subLabel="Shortens URLs via Zipline. GIFs from Tenor, Giphy, and Klipy are automatically preserved so Discord embeds them."
 						value={storage?.autoShorten !== false}
 						onValueChange={(v: boolean) =>
 							api.jsonStorage.set({ autoShorten: v })
-						}
-					/>
-					<TableSwitchRow
-						label="Exclude GIFs and media from shortening"
-						subLabel="Preserves Klipy, Tenor, Giphy, and direct image/video links so Discord renders them as animated embeds."
-						value={storage?.excludeMediaShorten !== false}
-						onValueChange={(v: boolean) =>
-							api.jsonStorage.set({ excludeMediaShorten: v })
 						}
 					/>
 				</TableRowGroup>
