@@ -6,7 +6,7 @@ import {
 } from 'react-native'
 import { deleteFont, selectFont, saveFont } from './lib/fonts'
 import { deleteTheme, extractFontFromTheme, selectTheme } from './lib/themes'
-import type { CustomFontDefinition, InstalledTheme, ThemeifyStorage } from './types'
+import type { InstalledFont, InstalledTheme, ThemeifyStorage } from './types'
 
 export function ActionButton({
 	text,
@@ -191,7 +191,7 @@ export function FontListItem({
 	jsonStorage,
 	onSelectFont,
 }: {
-	font: CustomFontDefinition
+	font: InstalledFont
 	isSelected: boolean
 	storage: ThemeifyStorage
 	jsonStorage: any

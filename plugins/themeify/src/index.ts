@@ -25,9 +25,13 @@ export default plugin<{ jsonStorage: ThemeifyStorage }>({
 				const cache = data ?? {}
 				if (cache.selectedThemeId && cache.themes?.[cache.selectedThemeId]) {
 					writeCurrentThemeToNative(cache.themes[cache.selectedThemeId])
+				} else if (!cache.selectedThemeId) {
+					writeCurrentThemeToNative(null)
 				}
 				if (cache.selectedFontName && cache.fonts?.[cache.selectedFontName]) {
 					writeFontToNative(cache.fonts[cache.selectedFontName].data)
+				} else if (!cache.selectedFontName) {
+					writeFontToNative(null)
 				}
 			} catch (e) {
 				console.error('[Themeify] Failed to sync to native on startup', e)

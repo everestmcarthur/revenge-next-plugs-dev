@@ -2,14 +2,21 @@ import { applyTheme, clearTheme } from './loader'
 import { writeCurrentThemeToNative } from './fs'
 import type { FontDefinition, InstalledTheme, ThemeData, ThemeifyStorage } from '../types'
 
-export function validateTheme(data: any): ThemeData {
+export function validateTheme(data: any, fallbackName = 'Custom Theme'): ThemeData {
 	if (!data || typeof data !== 'object') {
 		throw new Error('Theme manifest must be an object')
 	}
-	if (!data.name || typeof data.name !== 'string') {
-		throw new Error('Theme is missing a valid "name" field.')
-	}
-	return data as ThemeData
+	const target = data.data ?? data
+	const name =
+		typeof target.name === 'string' && target.name.trim()
+			? target.name.trim()
+			: fallbackName
+
+	return {
+		...target,
+		name,
+		spec: Number(target.spec ?? 2),
+	} as ThemeData
 }
 
 export async function fetchThemeFromUrl(url: string): Promise<ThemeData> {
@@ -23,8 +30,14 @@ export async function fetchThemeFromUrl(url: string): Promise<ThemeData> {
 		throw new Error(`HTTP ${res.status}: Failed to fetch theme from ${cleanUrl}`)
 	}
 	const json = await res.json()
-	const targetData = json.data ?? json
-	return validateTheme(targetData)
+
+	const urlParts = cleanUrl.split('/').filter(Boolean)
+	const lastSegment = urlParts[urlParts.length - 1] ?? 'Custom Theme'
+	const inferredName = decodeURIComponent(
+		lastSegment.replace(/\.json$/i, '').replace(/[-_]theme$/i, ''),
+	)
+
+	return validateTheme(json, inferredName)
 }
 
 export async function saveTheme(
@@ -111,13 +124,14 @@ export async function deleteTheme(
 }
 
 export function extractFontFromTheme(theme: ThemeData): FontDefinition | null {
-	if (!theme.fonts || typeof theme.fonts !== 'object' || Object.keys(theme.fonts).length === 0) {
+	const fonts = theme.fonts ?? (theme as any).main
+	if (!fonts || typeof fonts !== 'object' || Object.keys(fonts).length === 0) {
 		return null
 	}
 	return {
 		spec: 1,
 		name: `${theme.name} Font`,
 		description: `Font pack extracted from ${theme.name}`,
-		main: theme.fonts,
+		main: fonts,
 	}
 }

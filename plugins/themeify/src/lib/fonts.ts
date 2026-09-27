@@ -1,20 +1,29 @@
 import { writeFontToNative } from './fs'
 import type { FontDefinition, InstalledFont, ThemeifyStorage } from '../types'
 
-export function validateFont(font: any): FontDefinition {
-	if (!font || typeof font !== 'object') {
+export function validateFont(raw: any, fallbackName = 'Custom Font'): FontDefinition {
+	if (!raw || typeof raw !== 'object') {
 		throw new Error('Font manifest must be an object')
 	}
-	if (font.spec !== 1) {
-		throw new Error(`Unsupported font spec: ${font.spec}. Only spec: 1 is supported.`)
+	const target = raw.data ?? raw
+	const main = target.main ?? target.fonts ?? {}
+	if (!main || typeof main !== 'object' || Object.keys(main).length === 0) {
+		throw new Error('Font manifest must specify at least one font mapping in "main" or "fonts".')
 	}
-	if (!font.name || typeof font.name !== 'string') {
-		throw new Error('Font manifest is missing a valid "name" field.')
+
+	const rawName =
+		typeof target.name === 'string' && target.name.trim()
+			? target.name.trim()
+			: fallbackName
+
+	return {
+		spec: 1,
+		name: rawName,
+		description: target.description ?? '',
+		previewText: target.previewText ?? '',
+		source: target.source ?? '',
+		main,
 	}
-	if (!font.main || typeof font.main !== 'object' || Object.keys(font.main).length === 0) {
-		throw new Error('Font manifest must specify at least one font mapping in "main".')
-	}
-	return font as FontDefinition
 }
 
 export async function fetchFontFromUrl(url: string): Promise<FontDefinition> {
@@ -28,7 +37,14 @@ export async function fetchFontFromUrl(url: string): Promise<FontDefinition> {
 		throw new Error(`HTTP ${res.status}: Failed to fetch font from ${cleanUrl}`)
 	}
 	const json = await res.json()
-	const validated = validateFont(json)
+
+	const urlParts = cleanUrl.split('/').filter(Boolean)
+	const lastSegment = urlParts[urlParts.length - 1] ?? 'Custom Font'
+	const inferredName = decodeURIComponent(
+		lastSegment.replace(/\.json$/i, '').replace(/[-_]font$/i, ''),
+	)
+
+	const validated = validateFont(json, inferredName)
 	validated.source = cleanUrl
 	return validated
 }
@@ -111,4 +127,3 @@ export async function deleteFont(
 
 	await storageApi.set(cache)
 }
-

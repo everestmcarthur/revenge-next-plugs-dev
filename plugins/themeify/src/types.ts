@@ -58,6 +58,8 @@ export interface InstalledFont {
 	installedAt?: number
 }
 
+export type CustomFontDefinition = InstalledFont
+
 export interface ThemeifyStorage {
 	selectedThemeId: string | null
 	themes: Record<string, InstalledTheme>
