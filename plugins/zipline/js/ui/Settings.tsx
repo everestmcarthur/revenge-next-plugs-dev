@@ -28,9 +28,9 @@ export default function Settings({
 							color="text-muted"
 							style={{ marginTop: 6 }}
 						>
-							Upload attachments and shorten URLs through your self-hosted Zipline
-							instance. Requires an API token from your Zipline dashboard (Account
-							Settings → Token).
+							Upload attachments and shorten URLs through your self-hosted
+							Zipline instance. Requires an API token from your Zipline
+							dashboard (Account Settings → Token).
 						</Text>
 					</View>
 				</Card>
@@ -58,6 +58,14 @@ export default function Settings({
 						value={storage?.autoUpload !== false}
 						onValueChange={(v: boolean) =>
 							api.jsonStorage.set({ autoUpload: v })
+						}
+					/>
+					<TableSwitchRow
+						label="Auto-chunk large uploads"
+						subLabel="Automatically slice uploads larger than 90 MB into 50 MB chunks to bypass Cloudflare proxy limits (413 Payload Too Large)."
+						value={storage?.chunkUpload !== false}
+						onValueChange={(v: boolean) =>
+							api.jsonStorage.set({ chunkUpload: v })
 						}
 					/>
 					<TableSwitchRow

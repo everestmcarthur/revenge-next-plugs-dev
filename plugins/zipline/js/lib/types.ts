@@ -3,6 +3,8 @@ export interface ZiplineStorage {
 	host?: string
 	autoUpload: boolean
 	autoShorten: boolean
+	chunkUpload?: boolean
+	chunkSizeMb?: number
 }
 
 export const DEFAULT_STORAGE: ZiplineStorage = {
@@ -10,4 +12,6 @@ export const DEFAULT_STORAGE: ZiplineStorage = {
 	host: 'i.allyapp.cc',
 	autoUpload: true,
 	autoShorten: true,
+	chunkUpload: true,
+	chunkSizeMb: 50,
 }

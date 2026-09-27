@@ -1,7 +1,8 @@
 import { findByImportedPath, waitForImportedPath } from '../../shared/finders'
 import { isExcludedDomain, shortenUrl, uploadFile } from './lib/api'
-import { DEFAULT_STORAGE, type ZiplineStorage } from './lib/types'
+import { DEFAULT_STORAGE } from './lib/types'
 import Settings from './ui/Settings'
+import type { ZiplineStorage } from './lib/types'
 
 const TAG = '[Zipline]'
 const URL_REGEX = /https?:\/\/[^\s<>"]+/g
@@ -28,7 +29,15 @@ function extractFileInfo(att: any) {
 		att?.item?.type ||
 		att?.file?.type ||
 		'application/octet-stream'
-	return { uri, name, type }
+	const rawSize =
+		att?.size ||
+		att?.fileSize ||
+		att?.item?.size ||
+		att?.item?.fileSize ||
+		att?.file?.size ||
+		0
+	const size = Number(rawSize)
+	return { uri, name, type, size: Number.isNaN(size) ? 0 : size }
 }
 
 export default plugin<{ jsonStorage: ZiplineStorage }>({
@@ -40,9 +49,9 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 	start(api) {
 		const cleanups: Array<() => void> = []
 
-		const showToast = (content: string) => {
+		const showToast = (content: string, key = 'zipline-toast') => {
 			try {
-				revenge.discord.actions.ToastActionCreators?.open?.({ content })
+				revenge.discord.actions.ToastActionCreators?.open?.({ key, content })
 			} catch {}
 		}
 
@@ -69,7 +78,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 							return orig.apply(target, args)
 						}
 
-						const [channelId, message, promise, options] = args
+						const [_channelId, message, _promise, options] = args
 						let content: string = message?.content ?? ''
 
 						const rawAttachments: any[] =
@@ -89,8 +98,9 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 						if (wantsUpload) {
 							showToast('Uploading to Zipline…')
 
-							for (const raw of rawAttachments) {
-								const { uri, name, type } = extractFileInfo(raw)
+							for (let idx = 0; idx < rawAttachments.length; idx++) {
+								const raw = rawAttachments[idx]
+								const { uri, name, type, size } = extractFileInfo(raw)
 								if (!uri) continue
 
 								try {
@@ -100,6 +110,18 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 										type,
 										token,
 										storage.host,
+										size,
+										{
+											chunkUpload: storage.chunkUpload !== false,
+											chunkSizeMb: storage.chunkSizeMb,
+											onProgress: progress => {
+												if (progress.totalChunks > 1) {
+													showToast(
+														`Uploading ${name} (${progress.currentChunk}/${progress.totalChunks} • ${progress.percent}%)…`,
+													)
+												}
+											},
+										},
 									)
 									uploadedUrls.push(uploaded.url)
 								} catch (e: any) {
@@ -127,7 +149,11 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 								message.content = content
 
 								setClipboard(uploadedUrls[uploadedUrls.length - 1])
-								showToast('Uploaded to Zipline (link copied)')
+								showToast(
+									uploadedUrls.length === 1
+										? 'Uploaded to Zipline (link copied)'
+										: `Uploaded ${uploadedUrls.length} files to Zipline (link copied)`,
+								)
 							}
 						}
 
@@ -135,7 +161,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 						if (wantsShorten) {
 							const rawMatches = content.match(URL_REGEX) ?? []
 							const urls = [...new Set(rawMatches)].filter(
-								(u) => !isExcludedDomain(u, storage.host),
+								u => !isExcludedDomain(u, storage.host),
 							)
 
 							let shortenedCount = 0
@@ -170,13 +196,19 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 			const mod =
 				findByImportedPath('actions/MessageActionCreators.tsx') ??
 				revenge.modules.finders.lookupModule(
-					revenge.modules.finders.filters.withProps('sendMessage', 'editMessage'),
+					revenge.modules.finders.filters.withProps(
+						'sendMessage',
+						'editMessage',
+					),
 				)?.[0]
 			if (mod) patchMessageActions(mod)
 
-			const unsubPath = waitForImportedPath('actions/MessageActionCreators.tsx', (m) => {
-				if (m) patchMessageActions(m)
-			})
+			const unsubPath = waitForImportedPath(
+				'actions/MessageActionCreators.tsx',
+				m => {
+					if (m) patchMessageActions(m)
+				},
+			)
 			if (unsubPath) cleanups.push(unsubPath)
 		} catch (e) {
 			api.logger.error(`${TAG} Error finding MessageActions: ${e}`)
@@ -185,8 +217,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 		// Register Client Utils slash command if available
 		try {
 			const clientUtils =
-				(revenge as any)?.plugins?.clientUtils ??
-				(globalThis as any).__c_utils
+				(revenge as any)?.plugins?.clientUtils ?? (globalThis as any).__c_utils
 			if (clientUtils?.registerCommand) {
 				clientUtils.registerCommand(
 					{
@@ -208,9 +239,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 								displayName: 'ephemeral',
 								description: 'Show response only to you (optional)',
 								required: false,
-								choices: [
-									{ name: 'True', displayName: 'True', value: 'true' },
-								],
+								choices: [{ name: 'True', displayName: 'True', value: 'true' }],
 							},
 						],
 						execute: async (args: any, ctx: any) => {
@@ -228,11 +257,7 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 							}
 
 							try {
-								const shortUrl = await shortenUrl(
-									args.url,
-									token,
-									storage.host,
-								)
+								const shortUrl = await shortenUrl(args.url, token, storage.host)
 								setClipboard(shortUrl)
 
 								if (args.format === 'embed' && clientUtils.builders) {
