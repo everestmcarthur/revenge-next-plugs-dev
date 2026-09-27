@@ -3,7 +3,7 @@ import { React, ReactNative as RN } from '../../vendetta'
 import { semanticColors } from '../../vendetta'
 import type { TextProps } from 'react-native'
 
-import { resolveSemanticColor, TextStyleSheet } from '../../types'
+import { resolveSemanticColor, TextStyleSheet, useThemeContext } from '../../types'
 
 export function TrailingText({ children }: React.PropsWithChildren<object>) {
 	return (
@@ -11,10 +11,6 @@ export function TrailingText({ children }: React.PropsWithChildren<object>) {
 			{children}
 		</Text>
 	)
-}
-
-const { useThemeContext } = findByProps('useThemeContext') ?? {
-	useThemeContext: () => ({ theme: 'dark' }),
 }
 
 export default function Text({

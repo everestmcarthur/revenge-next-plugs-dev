@@ -12,6 +12,7 @@ import { getData, saveData } from './stuff/api'
 import { debounceSync } from './stuff/http'
 import patcher from './stuff/patcher'
 import { grabEverything } from './stuff/syncStuff'
+import { fluxSubscribe } from './types'
 
 const getUserStore = () =>
 	(globalThis as any).revenge?.discord?.flux?.Stores?.UserStore ??
@@ -118,14 +119,9 @@ export function onLoad() {
 		}
 
 		// Experiment overrides listener
-		const dispatcher =
-			(globalThis as any).revenge?.discord?.flux?.Stores?.ExperimentStore?._dispatcher ??
-			(globalThis as any).revenge?.discord?.flux?.Dispatcher
-		if (dispatcher?.subscribe) {
-			const unsubExp = dispatcher.subscribe('EXPERIMENT_OVERRIDE_BUCKET', autoSync)
-			if (typeof unsubExp === 'function') {
-				patches.push(unsubExp)
-			}
+		const unsubExp = fluxSubscribe('EXPERIMENT_OVERRIDE_BUCKET', autoSync)
+		if (typeof unsubExp === 'function') {
+			patches.push(unsubExp)
 		}
 
 		const pluginEmitter = (plugins as any)?.[emitterSymbol]

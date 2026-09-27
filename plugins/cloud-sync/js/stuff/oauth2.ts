@@ -7,15 +7,19 @@ import constants from '../constants'
 import { useAuthorizationStore } from '../stores/AuthorizationStore'
 import { authFetch, getData, loginWithUserId } from './api'
 
-const { pushModal, popModal } = findByProps('pushModal', 'popModal') ?? {
-	pushModal: () => {},
-	popModal: () => {},
-}
-const OAuth2AuthorizeModal = findByName('OAuth2AuthorizeModal')
-const UserStore = findByStoreName('UserStore')
+const getUserStore = () =>
+	(globalThis as any).revenge?.discord?.flux?.Stores?.UserStore ??
+	findByStoreName('UserStore')
+
+const getModal = () => ({
+	pushModal: findByProps('pushModal', 'popModal')?.pushModal ?? (() => {}),
+	popModal: findByProps('pushModal', 'popModal')?.popModal ?? (() => {}),
+})
+
+const getOAuth2AuthorizeModal = () => findByName('OAuth2AuthorizeModal')
 
 export async function authorizeUser() {
-	const currentUser = UserStore?.getCurrentUser?.()
+	const currentUser = getUserStore()?.getCurrentUser?.()
 	if (!constants.oauth2.clientId) {
 		// 1-click direct authorization using the current user ID
 		if (currentUser?.id) {
@@ -51,11 +55,12 @@ export async function authorizeUser() {
 }
 
 export function openOauth2Modal() {
+	const { pushModal, popModal } = getModal()
 	pushModal({
 		key: 'oauth2-authorize',
 		modal: {
 			key: 'oauth2-authorize',
-			modal: OAuth2AuthorizeModal,
+			modal: getOAuth2AuthorizeModal(),
 			animation: 'slide-up',
 
 			shouldPersistUnderModals: false,

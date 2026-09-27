@@ -82,6 +82,12 @@ useAuthorizationStore.persist = {
 	rehydrate: () => currentState.init(),
 }
 
-export const unsubAuthStore = fluxSubscribe('CONNECTION_OPEN', () => {
+export function initAuthStore() {
 	currentState.init()
-})
+	return fluxSubscribe('CONNECTION_OPEN', () => {
+		currentState.init()
+	})
+}
+
+export const unsubAuthStore = () => {}
+

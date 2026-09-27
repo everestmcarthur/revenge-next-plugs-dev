@@ -9,22 +9,66 @@ const getCommon = () => getMetro().common ?? {}
 const getUi = () => getVendetta().ui ?? {}
 
 // Metro finders
-export const findByProps = (...props: string[]) =>
-	getMetro().findByProps?.(...props) ??
-	g.revenge?.discord?.utils?.modules?.finders?.findByProps?.(...props)
+export const findByProps = (...props: string[]) => {
+	const metro = getMetro()
+	if (typeof metro?.findByProps === 'function') return metro.findByProps(...props)
+	if (typeof g.revenge?.discord?.utils?.modules?.finders?.findByProps === 'function')
+		return g.revenge.discord.utils.modules.finders.findByProps(...props)
+	const finders = g.revenge?.modules?.finders
+	if (finders?.lookupModule && finders?.filters?.withProps) {
+		try {
+			const mod = finders.lookupModule(finders.filters.withProps(...props))
+			return Array.isArray(mod) ? mod[0] : mod
+		} catch {}
+	}
+	return undefined
+}
 
-export const findByName = (name: string, defaultExp?: boolean) =>
-	getMetro().findByName?.(name, defaultExp) ??
-	g.revenge?.discord?.utils?.modules?.finders?.findByName?.(name, defaultExp)
+export const findByName = (name: string, defaultExp?: boolean) => {
+	const metro = getMetro()
+	if (typeof metro?.findByName === 'function') return metro.findByName(name, defaultExp)
+	if (typeof g.revenge?.discord?.utils?.modules?.finders?.findByName === 'function')
+		return g.revenge.discord.utils.modules.finders.findByName(name, defaultExp)
+	const finders = g.revenge?.modules?.finders
+	if (finders?.lookupModule && finders?.filters?.withName) {
+		try {
+			const mod = finders.lookupModule(finders.filters.withName(name))
+			return Array.isArray(mod) ? mod[0] : mod
+		} catch {}
+	}
+	return undefined
+}
 
-export const findByStoreName = (name: string) =>
-	g.revenge?.discord?.flux?.Stores?.[name] ??
-	getMetro().findByStoreName?.(name) ??
-	g.revenge?.discord?.utils?.modules?.finders?.findByStoreName?.(name)
+export const findByStoreName = (name: string) => {
+	if (g.revenge?.discord?.flux?.Stores?.[name])
+		return g.revenge.discord.flux.Stores[name]
+	if (typeof g.revenge?.discord?.flux?.getStore === 'function') {
+		try {
+			const s = g.revenge.discord.flux.getStore(name)
+			if (s) return s
+		} catch {}
+	}
+	const metro = getMetro()
+	if (typeof metro?.findByStoreName === 'function') return metro.findByStoreName(name)
+	if (typeof g.revenge?.discord?.utils?.modules?.finders?.findByStoreName === 'function')
+		return g.revenge.discord.utils.modules.finders.findByStoreName(name)
+	return undefined
+}
 
-export const find = (filter: (m: any) => boolean) =>
-	getMetro().find?.(filter) ??
-	g.revenge?.discord?.utils?.modules?.finders?.find?.(filter)
+export const find = (filter: (m: any) => boolean) => {
+	const metro = getMetro()
+	if (typeof metro?.find === 'function') return metro.find(filter)
+	if (typeof g.revenge?.discord?.utils?.modules?.finders?.find === 'function')
+		return g.revenge.discord.utils.modules.finders.find(filter)
+	const finders = g.revenge?.modules?.finders
+	if (finders?.lookupModule) {
+		try {
+			const mod = finders.lookupModule(filter)
+			return Array.isArray(mod) ? mod[0] : mod
+		} catch {}
+	}
+	return undefined
+}
 
 // Common
 export const constants = new Proxy(
@@ -38,6 +82,9 @@ export const FluxDispatcher = new Proxy(
 	{},
 	{
 		get: (_, p) =>
+			g.revenge?.discord?.common?.flux?.Dispatcher?.[p] ??
+			g.revenge?.discord?.flux?.Dispatcher?.[p] ??
+			g.revenge?.discord?.flux?.Stores?.ExperimentStore?._dispatcher?.[p] ??
 			getCommon().FluxDispatcher?.[p] ??
 			findByProps('dispatch', 'subscribe')?.[p],
 	},
@@ -47,19 +94,23 @@ export const NavigationNative = new Proxy(
 	{},
 	{
 		get: (_, p) =>
-			getCommon().NavigationNative?.[p] ?? findByProps('useNavigation')?.[p],
+			g.revenge?.everest?.getNavigation?.()?.[p] ??
+			g.revenge?.everest?.getNavigator?.()?.[p] ??
+			getCommon().NavigationNative?.[p] ??
+			findByProps('useNavigation')?.[p],
 	},
 )
 
 export const stylesheet = {
 	createThemedStyleSheet: (styles: any) =>
 		getCommon().stylesheet?.createThemedStyleSheet?.(styles) ??
-		RN.StyleSheet.create(styles),
+		RN?.StyleSheet?.create(styles) ??
+		styles,
 }
 
 export const url = {
 	openURL: (link: string) =>
-		getCommon().url?.openURL?.(link) ?? RN.Linking.openURL(link),
+		getCommon().url?.openURL?.(link) ?? RN?.Linking?.openURL?.(link),
 }
 
 // UI
@@ -73,27 +124,122 @@ export const semanticColors = new Proxy(
 export const Forms = new Proxy(
 	{},
 	{
-		get: (_, p) => getUi().components?.Forms?.[p] ?? {},
+		get: (_, p) => {
+			const uiForm = getUi().components?.Forms?.[p]
+			if (uiForm && typeof uiForm === 'function') return uiForm
+
+			const design = g.revenge?.discord?.design?.Design
+			if (design) {
+				if (p === 'FormRow' && design.TableRow) {
+					const Row = design.TableRow
+					Row.Icon = ({ source, style }: any) =>
+						source ? React.createElement(RN.Image, { source, style }) : null
+					Row.Arrow = () => null
+					return Row
+				}
+				if (p === 'FormSwitchRow' && design.TableSwitchRow) return design.TableSwitchRow
+				if (p === 'FormCheckboxRow' && design.TableCheckboxRow) return design.TableCheckboxRow
+				if (p === 'FormRadioRow' && design.TableRadioRow) return design.TableRadioRow
+				if (p === 'FormInput' && (design.TextInput || design.TextField))
+					return design.TextInput || design.TextField
+				if (p === 'FormSection' && design.TableRowGroup) return design.TableRowGroup
+				if (design[p]) return design[p]
+			}
+
+			const Fallback: any = (props: any) => props?.children ?? null
+			Fallback.Icon = ({ source, style }: any) =>
+				source ? React.createElement(RN.Image, { source, style }) : null
+			Fallback.Arrow = () => null
+			return Fallback
+		},
 	},
 )
 
-export const Search = new Proxy(
-	{},
-	{
-		get: (_, p) => getUi().components?.Search?.[p] ?? {},
+export const Search: any = Object.assign(
+	function Search(props: any) {
+		const UiSearch = getUi().components?.Search
+		if (typeof UiSearch === 'function') return React.createElement(UiSearch, props)
+		const RevengeSearch = g.revenge?.components?.SearchInput
+		if (typeof RevengeSearch === 'function')
+			return React.createElement(RevengeSearch, {
+				value: props.value,
+				onChangeText: props.onChangeText ?? props.onChange,
+				placeholder: props.placeholder ?? 'Search...',
+				style: props.style,
+			})
+		return React.createElement(RN.TextInput, {
+			value: props.value,
+			onChangeText: props.onChangeText ?? props.onChange,
+			placeholder: props.placeholder ?? 'Search...',
+			placeholderTextColor: '#80848e',
+			style: [
+				{
+					backgroundColor: '#1e1f22',
+					borderRadius: 8,
+					padding: 10,
+					color: '#fff',
+				},
+				props.style,
+			],
+		})
 	},
+	new Proxy(
+		{},
+		{
+			get: (_, p) => getUi().components?.Search?.[p] ?? (() => null),
+		},
+	),
 )
 
-export const showToast = (content: string, asset?: any) =>
-	getUi().toasts?.showToast?.(content, asset)
+export const showToast = (content: string, asset?: any) => {
+	if (typeof getUi().toasts?.showToast === 'function') {
+		return getUi().toasts.showToast(content, asset)
+	}
+	const toastMod = findByProps('showToast')
+	if (typeof toastMod?.showToast === 'function') {
+		try {
+			return toastMod.showToast(content, asset)
+		} catch {}
+	}
+	if (typeof RN?.ToastAndroid?.show === 'function') {
+		RN.ToastAndroid.show(content, RN.ToastAndroid.SHORT)
+	}
+}
 
-export const showConfirmationAlert = (options: any) =>
-	getUi().alerts?.showConfirmationAlert?.(options)
+export const showConfirmationAlert = (options: any) => {
+	if (typeof getUi().alerts?.showConfirmationAlert === 'function') {
+		return getUi().alerts.showConfirmationAlert(options)
+	}
+	if (RN?.Alert?.alert) {
+		RN.Alert.alert(
+			options.title ?? '',
+			options.content ?? options.body ?? '',
+			[
+				{ text: options.cancelText ?? 'Cancel', style: 'cancel', onPress: options.onCancel },
+				{ text: options.confirmText ?? 'OK', onPress: options.onConfirm },
+			],
+		)
+	}
+}
 
-export const showAlert = (options: any) => getUi().alerts?.showAlert?.(options)
+export const showAlert = (options: any) => {
+	if (typeof getUi().alerts?.showAlert === 'function') {
+		return getUi().alerts.showAlert(options)
+	}
+	if (RN?.Alert?.alert) {
+		RN.Alert.alert(
+			options.title ?? '',
+			options.content ?? options.body ?? '',
+			[{ text: options.confirmText ?? 'OK', onPress: options.onConfirm }],
+		)
+	}
+}
 
 export const getAssetIDByName = (name: string) =>
-	getUi().assets?.getAssetIDByName?.(name) ?? 0
+	g.revenge?.assets?.getAssetIdByName?.(name) ??
+	g.revenge?.assets?.getAssetByName?.(name)?.id ??
+	getUi().assets?.getAssetIDByName?.(name) ??
+	0
 
 // Plugins & Themes
 export const plugins = new Proxy(

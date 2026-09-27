@@ -2,9 +2,15 @@ import { findByProps } from '../../vendetta'
 import { React, ReactNative as RN } from '../../vendetta'
 import type { ImageSourcePropType, ViewProps } from 'react-native'
 
-const _ActionSheet = findByProps('ActionSheet')?.ActionSheet ?? RN.View
-const { BottomSheetTitleHeader } = findByProps('BottomSheetTitleHeader') ?? {
-	BottomSheetTitleHeader: ({ title, trailing }: any) => (
+const getActionSheet = () =>
+	(globalThis as any).revenge?.discord?.design?.Design?.ActionSheet ??
+	findByProps('ActionSheet')?.ActionSheet ??
+	RN.View
+
+const getBottomSheetTitleHeader = () =>
+	(globalThis as any).revenge?.discord?.design?.Design?.BottomSheetTitleHeader ??
+	findByProps('BottomSheetTitleHeader')?.BottomSheetTitleHeader ??
+	(({ title, trailing }: any) => (
 		<RN.View
 			style={{
 				flexDirection: 'row',
@@ -17,24 +23,43 @@ const { BottomSheetTitleHeader } = findByProps('BottomSheetTitleHeader') ?? {
 			</RN.Text>
 			{trailing}
 		</RN.View>
-	),
-}
-const { ActionSheetCloseButton } = findByProps('ActionSheetCloseButton') ?? {
-	ActionSheetCloseButton: ({ onPress }: any) => (
+	))
+
+const getActionSheetCloseButton = () =>
+	findByProps('ActionSheetCloseButton')?.ActionSheetCloseButton ??
+	(({ onPress }: any) => (
 		<RN.TouchableOpacity onPress={onPress}>
 			<RN.Text style={{ color: '#fff' }}>✕</RN.Text>
 		</RN.TouchableOpacity>
-	),
+	))
+
+const getActionSheetModule = () =>
+	(globalThis as any).revenge?.everest?.getActionSheetActionCreators?.() ??
+	findByProps('openLazy', 'hideActionSheet')
+
+export const openLazy = (component: any, key: string, props?: object) => {
+	if (typeof (globalThis as any).revenge?.everest?.openLazyActionSheet === 'function') {
+		try {
+			return (globalThis as any).revenge.everest.openLazyActionSheet(component, key, props)
+		} catch {}
+	}
+	const mod = getActionSheetModule()
+	if (typeof mod?.openLazy === 'function') {
+		return mod.openLazy(component, key, props)
+	}
 }
 
-export const LazyActionSheet = (findByProps('openLazy', 'hideActionSheet') ?? {
-	openLazy: () => {},
-	hideActionSheet: () => {},
-}) as {
-	openLazy: (component: Promise<any>, key: string, props?: object) => void
-	hideActionSheet: () => void
+export const hideActionSheet = () => {
+	const mod = getActionSheetModule()
+	if (typeof mod?.hideActionSheet === 'function') {
+		return mod.hideActionSheet()
+	}
 }
-export const { openLazy, hideActionSheet } = LazyActionSheet
+
+export const LazyActionSheet = {
+	openLazy,
+	hideActionSheet,
+}
 
 export const { showSimpleActionSheet } = (findByProps(
 	'showSimpleActionSheet',
@@ -67,13 +92,17 @@ type ActionSheetProps = React.PropsWithChildren<
 
 export const ActionSheet = ((props: ActionSheetProps) => {
 	const { title, onClose, children, ...rest } = props
+	const SheetComp = getActionSheet()
+	const HeaderComp = getBottomSheetTitleHeader()
+	const CloseBtnComp = getActionSheetCloseButton()
+
 	return (
-		<_ActionSheet
+		<SheetComp
 			header={
-				<BottomSheetTitleHeader
+				<HeaderComp
 					title={title}
 					trailing={
-						<ActionSheetCloseButton
+						<CloseBtnComp
 							onPress={onClose ?? (() => hideActionSheet())}
 						/>
 					}
@@ -81,7 +110,7 @@ export const ActionSheet = ((props: ActionSheetProps) => {
 			}
 		>
 			<RN.View {...rest}>{children}</RN.View>
-		</_ActionSheet>
+		</SheetComp>
 	)
 }) as {
 	(props: ActionSheetProps): JSX.Element

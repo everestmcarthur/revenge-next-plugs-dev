@@ -140,6 +140,12 @@ useCacheStore.persist = {
 	rehydrate: () => currentState.init(),
 }
 
-export const unsubCacheStore = fluxSubscribe('CONNECTION_OPEN', () => {
+export function initCacheStore() {
 	currentState.init()
-})
+	return fluxSubscribe('CONNECTION_OPEN', () => {
+		currentState.init()
+	})
+}
+
+export const unsubCacheStore = () => {}
+

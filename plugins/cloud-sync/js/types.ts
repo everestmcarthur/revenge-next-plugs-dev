@@ -6,22 +6,37 @@ const getThemeStore = () =>
 	(globalThis as any).revenge?.discord?.flux?.Stores?.ThemeStore ??
 	findByStoreName('ThemeStore')
 
-const { triggerHaptic } = findByProps('triggerHaptic') ?? {
-	triggerHaptic: () => {},
+const getTriggerHaptic = () => findByProps('triggerHaptic')?.triggerHaptic
+
+export const TextStyleSheet = new Proxy(
+	{},
+	{
+		get: (_, p) => findByProps('TextStyleSheet')?.TextStyleSheet?.[p] ?? {},
+	},
+)
+
+export const Navigator = new Proxy(
+	{},
+	{
+		get: (_, p) => findByProps('Navigator')?.Navigator?.[p],
+	},
+)
+
+export const modalCloseButton = (...args: any[]) => {
+	const fn =
+		(globalThis as any).revenge?.everest?.getModalCloseButton?.() ??
+		findByProps('getHeaderCloseButton')?.getHeaderCloseButton
+	return typeof fn === 'function' ? fn(...args) : null
 }
 
-const colorModule = findByProps('colors', 'unsafe_rawColors')
-const colorResolver = colorModule?.internal ?? colorModule?.meta
+export const popModal = (...args: any[]) => {
+	const fn = findByProps('popModal', 'pushModal')?.popModal
+	return typeof fn === 'function' ? fn(...args) : undefined
+}
 
-export const TextStyleSheet = (findByProps('TextStyleSheet')?.TextStyleSheet ??
-	{}) as Record<string, any>
-export const Navigator = findByProps('Navigator')?.Navigator
-export const modalCloseButton = findByProps(
-	'getHeaderCloseButton',
-)?.getHeaderCloseButton
-export const { popModal, pushModal } = findByProps('popModal', 'pushModal') ?? {
-	popModal: () => {},
-	pushModal: () => {},
+export const pushModal = (...args: any[]) => {
+	const fn = findByProps('popModal', 'pushModal')?.pushModal
+	return typeof fn === 'function' ? fn(...args) : undefined
 }
 
 export const useThemeContext = () => {
@@ -34,6 +49,14 @@ export function resolveSemanticColor(
 	theme?: string,
 ) {
 	const currentTheme = theme ?? getThemeStore()?.theme ?? 'dark'
+	if ((globalThis as any).revenge?.everest?.resolveColor) {
+		try {
+			const res = (globalThis as any).revenge.everest.resolveColor(color, currentTheme)
+			if (res) return res
+		} catch {}
+	}
+	const colorModule = findByProps('colors', 'unsafe_rawColors')
+	const colorResolver = colorModule?.internal ?? colorModule?.meta
 	return (
 		(color && colorResolver?.resolveSemanticColor?.(currentTheme, color)) || '#000000'
 	)
@@ -77,14 +100,16 @@ export function openModal(key: string, modal: any) {
 
 export function doHaptic(dur: number): Promise<void> {
 	try {
-		triggerHaptic?.()
-		const interval = setInterval(() => triggerHaptic?.(), 1)
-		return new Promise(res =>
-			setTimeout(() => res(clearInterval(interval)), dur),
-		)
-	} catch {
-		return Promise.resolve()
-	}
+		const triggerHaptic = getTriggerHaptic()
+		if (typeof triggerHaptic === 'function') {
+			triggerHaptic()
+			const interval = setInterval(() => triggerHaptic(), 1)
+			return new Promise(res =>
+				setTimeout(() => res(clearInterval(interval)), dur),
+			)
+		}
+	} catch {}
+	return Promise.resolve()
 }
 
 export function fluxSubscribe(
@@ -92,12 +117,48 @@ export function fluxSubscribe(
 	callback: (data: any) => void,
 	once?: boolean,
 ) {
-	const cback = (data: any) => {
-		callback(data)
-		if (once) FluxDispatcher.unsubscribe(topic, cback)
+	const g = globalThis as any
+
+	// 1. Revenge's native onFluxEventDispatched
+	if (typeof g.revenge?.discord?.flux?.onFluxEventDispatched === 'function') {
+		const unsub = g.revenge.discord.flux.onFluxEventDispatched(topic, (data: any) => {
+			callback(data)
+			if (once) {
+				try {
+					unsub?.()
+				} catch {}
+			}
+		})
+		return typeof unsub === 'function' ? unsub : () => {}
 	}
-	FluxDispatcher.subscribe(topic, cback)
-	return () => FluxDispatcher.unsubscribe(topic, cback)
+
+	// 2. FluxDispatcher from revenge or vendetta
+	const dispatcher =
+		g.revenge?.discord?.common?.flux?.Dispatcher ??
+		g.revenge?.discord?.flux?.Dispatcher ??
+		g.revenge?.discord?.flux?.Stores?.ExperimentStore?._dispatcher ??
+		FluxDispatcher
+
+	if (typeof dispatcher?.subscribe === 'function') {
+		const cback = (data: any) => {
+			callback(data)
+			if (once) {
+				try {
+					dispatcher.unsubscribe?.(topic, cback)
+				} catch {}
+			}
+		}
+		try {
+			dispatcher.subscribe(topic, cback)
+			return () => {
+				try {
+					dispatcher.unsubscribe?.(topic, cback)
+				} catch {}
+			}
+		} catch {}
+	}
+
+	return () => {}
 }
 
 export function formatBytes(bytes: number) {

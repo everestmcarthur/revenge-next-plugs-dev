@@ -23,7 +23,9 @@ import NerdConfig from './NerdConfig'
 import IgnoredPluginsPage from './pages/IgnoredPluginsPage'
 import { AuthorizationSection, DataManagementSection } from './SettingsSections'
 
-const UserStore = findByStoreName('UserStore')
+const getUserStore = () =>
+	(globalThis as any).revenge?.discord?.flux?.Stores?.UserStore ??
+	findByStoreName('UserStore')
 const { FormRow, FormSwitchRow } = Forms
 
 export default function Settings() {
@@ -35,7 +37,7 @@ export default function Settings() {
 	const { data, at } = useCacheStore()
 	const { isAuthorized } = useAuthorizationStore()
 
-	const userId = UserStore.getCurrentUser()?.id ?? null
+	const userId = getUserStore()?.getCurrentUser?.()?.id ?? null
 	if (initState.didInit !== userId) {
 		initState.didInit = userId
 		if (isAuthorized()) {

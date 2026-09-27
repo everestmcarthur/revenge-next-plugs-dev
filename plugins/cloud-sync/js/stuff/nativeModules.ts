@@ -1,12 +1,18 @@
 import { find, findByName, findByProps } from '../vendetta'
 
-const nmp = (window as any).nativeModuleProxy ?? {}
-
 function getNativeModule<T = any>(...names: string[]): T | undefined {
+	const g = globalThis as any
+	const nmp =
+		g.nativeModuleProxy ??
+		g.window?.nativeModuleProxy ??
+		g.revenge?.react?.ReactNative?.NativeModules ??
+		{}
 	for (const name of names) {
-		if ((globalThis as any).__turboModuleProxy) {
-			const mod = (globalThis as any).__turboModuleProxy(name)
-			if (mod) return mod as T
+		if (typeof g.__turboModuleProxy === 'function') {
+			try {
+				const mod = g.__turboModuleProxy(name)
+				if (mod) return mod as T
+			} catch {}
 		}
 		if (nmp[name]) return nmp[name] as T
 	}

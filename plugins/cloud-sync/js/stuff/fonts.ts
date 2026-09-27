@@ -1,6 +1,7 @@
 import { without } from '../vendetta'
 
-const bunny = (window as any).bunny
+const bunny =
+	(globalThis as any).bunny ?? (globalThis as any).window?.bunny
 export const rawFonts = bunny?.fonts?.fonts ?? { __selected: '' }
 
 type FontMap = Record<string, string>

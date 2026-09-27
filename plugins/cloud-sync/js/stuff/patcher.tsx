@@ -1,10 +1,10 @@
-import { unsubAuthStore } from '../stores/AuthorizationStore'
-import { unsubCacheStore } from '../stores/CacheStore'
+import { initAuthStore } from '../stores/AuthorizationStore'
+import { initCacheStore } from '../stores/CacheStore'
 
 export default function patcher(): () => void {
 	const patches: (() => void)[] = []
-	patches.push(unsubAuthStore)
-	patches.push(unsubCacheStore)
+	patches.push(initAuthStore())
+	patches.push(initCacheStore())
 
 	return () => {
 		for (const x of patches) {
@@ -14,3 +14,4 @@ export default function patcher(): () => void {
 		}
 	}
 }
+
