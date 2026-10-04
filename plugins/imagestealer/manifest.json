@@ -1,0 +1,32 @@
+{
+	"format": 1,
+	"id": "dev.everestmcarthur.imagestealer",
+	"name": "ImageStealer",
+	"description": "Steal custom emojis and stickers from messages and reactions, save to your Cloudflare-synced Vault or Discord servers, and send anywhere without Nitro.",
+	"author": "Rosie",
+	"icon": "DownloadIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"revenge.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		},
+		"dev.everestmcarthur.lib": {
+			"version": ">=1.0.0",
+			"optional": true
+		},
+		"dev.everestmcarthur.client-utils": {
+			"version": ">=1.0.0",
+			"optional": true
+		},
+		"dev.everestmcarthur.zipline": {
+			"version": ">=1.0.0",
+			"optional": true
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
