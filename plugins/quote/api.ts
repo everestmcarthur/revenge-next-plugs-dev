@@ -4,7 +4,7 @@ import { getStoredSettings } from './storage'
 import type { MIQUserConfig, QuoteRequestOptions } from './types'
 
 export const CLOUDFLARE_WORKER_URL = 'https://miq-backend.allyapp.workers.dev'
-export const DEFAULT_MIQ_API_URL = 'http://127.0.0.1:8081/fakequote'
+export const DEFAULT_MIQ_API_URL = 'https://quote.allyapp.cc/fakequote'
 export const FALLBACK_MIQ_API_URL = 'https://api.voids.top/fakequote'
 
 export interface CheckQuoteResult {

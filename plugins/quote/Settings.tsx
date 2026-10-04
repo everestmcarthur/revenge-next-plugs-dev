@@ -64,7 +64,7 @@ export default function Settings({
 		s.defaultSettings.watermarkText ?? 'Make It A Quote',
 	)
 	const [apiUrl, setApiUrl] = useState(
-		s.apiUrl ?? 'http://127.0.0.1:8081/fakequote',
+		s.apiUrl ?? 'https://quote.allyapp.cc/fakequote',
 	)
 
 	useEffect(() => {
@@ -224,7 +224,7 @@ export default function Settings({
 							>
 								<TextInput
 									label="API Endpoint"
-									placeholder="http://127.0.0.1:8081/fakequote"
+									placeholder="https://quote.allyapp.cc/fakequote"
 									value={apiUrl}
 									onChange={(v: any) => {
 										const text =
