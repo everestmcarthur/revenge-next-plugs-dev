@@ -63,6 +63,9 @@ export default function Settings({
 	const [watermarkText, setWatermarkText] = useState(
 		s.defaultSettings.watermarkText ?? 'Make It A Quote',
 	)
+	const [apiUrl, setApiUrl] = useState(
+		s.apiUrl ?? 'http://127.0.0.1:8081/fakequote',
+	)
 
 	useEffect(() => {
 		setZiplineHost(s.zipline.host ?? 'i.allyapp.cc')
@@ -75,6 +78,10 @@ export default function Settings({
 	useEffect(() => {
 		setWatermarkText(s.defaultSettings.watermarkText ?? 'Make It A Quote')
 	}, [s.defaultSettings.watermarkText])
+
+	useEffect(() => {
+		setApiUrl(s.apiUrl ?? 'http://127.0.0.1:8081/fakequote')
+	}, [s.apiUrl])
 
 	const updateStorageOnly = (patch: Partial<StoredSettings>) => {
 		const updated = {
@@ -208,6 +215,30 @@ export default function Settings({
 										}}
 									/>
 								</View>
+							</TableRowGroup>
+
+							{/* Quote Rendering Engine */}
+							<TableRowGroup
+								title="Quote Rendering Engine"
+								description="Backend service used to generate quote cards"
+							>
+								<TextInput
+									label="API Endpoint"
+									placeholder="http://127.0.0.1:8081/fakequote"
+									value={apiUrl}
+									onChange={(v: any) => {
+										const text =
+											typeof v === 'string'
+												? v
+												: (v?.nativeEvent?.text ?? v?.text ?? '')
+										setApiUrl(text)
+										updateStorageOnly({ apiUrl: text })
+									}}
+									onChangeText={(v: string) => {
+										setApiUrl(v)
+										updateStorageOnly({ apiUrl: v })
+									}}
+								/>
 							</TableRowGroup>
 
 							{/* Optional Zipline Integration */}

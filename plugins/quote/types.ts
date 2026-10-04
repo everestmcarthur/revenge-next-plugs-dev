@@ -44,6 +44,7 @@ export interface QuoteRequestOptions {
 }
 
 export interface StoredSettings {
+	apiUrl?: string
 	blockMode: BlockSetting
 	allowCustomQuotes: boolean
 	forceDisableCustomQuotes: boolean

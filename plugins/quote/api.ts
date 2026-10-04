@@ -4,7 +4,8 @@ import { getStoredSettings } from './storage'
 import type { MIQUserConfig, QuoteRequestOptions } from './types'
 
 export const CLOUDFLARE_WORKER_URL = 'https://miq-backend.allyapp.workers.dev'
-export const MIQ_API_URL = 'https://api.voids.top/fakequote'
+export const DEFAULT_MIQ_API_URL = 'http://127.0.0.1:8081/fakequote'
+export const FALLBACK_MIQ_API_URL = 'https://api.voids.top/fakequote'
 
 export interface CheckQuoteResult {
 	allowed: boolean
@@ -235,16 +236,35 @@ export async function generateQuoteCard(
 		if (payload.flip) apiBody.flip = true
 		if (payload.new) apiBody.new = true
 		if (payload.gif) apiBody.gif = true
+		const settings = getStoredSettings()
+		const targetUrl = settings?.apiUrl?.trim() || DEFAULT_MIQ_API_URL
 
-		const res = await fetch(MIQ_API_URL, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(apiBody),
-		})
+		let res: Response | null = null
+		try {
+			res = await fetch(targetUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(apiBody),
+			})
+		} catch (fetchErr) {
+			if (targetUrl !== FALLBACK_MIQ_API_URL) {
+				console.warn('[Quote] Primary API failed, trying fallback:', fetchErr)
+				try {
+					res = await fetch(FALLBACK_MIQ_API_URL, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(apiBody),
+					})
+				} catch {}
+			}
+		}
 
-		if (!res.ok) {
-			const errText = await res.text().catch(() => 'Unknown API error')
-			return { success: false, error: errText }
+		if (!res?.ok) {
+			const errText = await res?.text().catch(() => 'Unknown API error')
+			return {
+				success: false,
+				error: errText || 'Failed to connect to Quote API',
+			}
 		}
 
 		const data = await res.json()

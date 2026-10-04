@@ -1,6 +1,7 @@
 import type { StoredSettings } from './types'
 
 export const defaultSettings: StoredSettings = {
+	apiUrl: 'http://127.0.0.1:8081/fakequote',
 	blockMode: 'never',
 	allowCustomQuotes: true,
 	forceDisableCustomQuotes: false,
