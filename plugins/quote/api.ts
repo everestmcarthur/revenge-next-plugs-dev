@@ -1,3 +1,4 @@
+import { renderDiscordMarkdownToUnicode } from './markdown'
 import { getCurrentUserId } from './quotes'
 import { getStoredSettings } from './storage'
 import type { MIQUserConfig, QuoteRequestOptions } from './types'
@@ -214,10 +215,10 @@ export async function generateQuoteCard(
 	payload: QuoteRequestOptions,
 ): Promise<GenerateQuoteResponse> {
 	try {
-		let text = payload.text || '...'
-		if (payload.bold && !text.startsWith('**')) {
-			text = `**${text}**`
-		}
+		const text = renderDiscordMarkdownToUnicode(
+			payload.text || '...',
+			Boolean(payload.bold),
+		)
 
 		const apiBody: Record<string, any> = {
 			text,
@@ -234,8 +235,6 @@ export async function generateQuoteCard(
 		if (payload.flip) apiBody.flip = true
 		if (payload.new) apiBody.new = true
 		if (payload.gif) apiBody.gif = true
-		if (payload.theme) apiBody.theme = payload.theme
-		if (payload.font) apiBody.font = payload.font
 
 		const res = await fetch(MIQ_API_URL, {
 			method: 'POST',

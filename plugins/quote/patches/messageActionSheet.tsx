@@ -109,8 +109,6 @@ async function executeQuoteAction(targetData: TargetData): Promise<void> {
 			flip: Boolean(def.flip),
 			new: Boolean(def.new),
 			gif: Boolean(def.gif),
-			theme: def.theme,
-			font: def.font,
 		})
 
 		const [check, res] = await Promise.all([checkPromise, cardPromise])

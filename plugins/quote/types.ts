@@ -12,8 +12,6 @@ export interface DefaultQuoteSettings {
 	gif: boolean
 	watermark: boolean
 	watermarkText: string
-	font: string
-	theme: string
 }
 
 export interface ZiplineConfig {
@@ -43,8 +41,6 @@ export interface QuoteRequestOptions {
 	new: boolean
 	gif: boolean
 	watermark: string
-	theme?: string
-	font?: string
 }
 
 export interface StoredSettings {

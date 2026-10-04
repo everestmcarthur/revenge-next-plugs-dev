@@ -126,16 +126,7 @@ export default function QuoteActionSheet({
 			generateCurrentQuote()
 		}, 350)
 		return () => clearTimeout(timeout)
-	}, [
-		light,
-		color,
-		bold,
-		flip,
-		newLayout,
-		gif,
-		watermark,
-		watermarkText,
-	])
+	}, [light, color, bold, flip, newLayout, gif, watermark, watermarkText])
 
 	const handleSend = async () => {
 		setSending(true)

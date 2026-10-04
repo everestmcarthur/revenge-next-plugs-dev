@@ -19,8 +19,6 @@ export const defaultSettings: StoredSettings = {
 		gif: false,
 		watermark: false,
 		watermarkText: 'Make It A Quote',
-		font: 'M PLUS Rounded 1c',
-		theme: 'Black/White',
 	},
 }
 
