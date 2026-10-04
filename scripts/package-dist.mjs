@@ -25,21 +25,26 @@ for (const entry of entries) {
 
 	const zipPath = join(DIST_DIR, `${id}.zip`)
 
-	// Use tar -a -c -f on Windows (built-in libarchive bsdtar) to make clean zip without folder prefixes
-	const res = spawnSync('tar', ['-a', '-c', '-f', zipPath, '-C', join(PLUGINS_DIR, entry.name), 'manifest.json', '-C', join(PLUGINS_DIR, entry.name, 'build', 'js'), 'index.js'], { stdio: 'pipe' })
+	// Use bsdtar (Linux/BSD) or tar -a -c -f on Windows (built-in libarchive bsdtar) to make clean zip without folder prefixes
+	const tarCmd = existsSync('/usr/bin/bsdtar') ? 'bsdtar' : 'tar'
+	const res = spawnSync(tarCmd, ['-a', '-c', '-f', zipPath, '-C', join(PLUGINS_DIR, entry.name), 'manifest.json', '-C', join(PLUGINS_DIR, entry.name, 'build', 'js'), 'index.js'], { stdio: 'pipe' })
 	if (res.status !== 0) {
-		// Fallback to powershell Compress-Archive
-		spawnSync('powershell', ['-Command', `Compress-Archive -Force -Path '${manifestPath}','${jsPath}' -DestinationPath '${zipPath}'`])
+		const pyRes = spawnSync('python3', ['-c', `import zipfile; z = zipfile.ZipFile('${zipPath}', 'w', zipfile.ZIP_DEFLATED); z.write('${manifestPath}', 'manifest.json'); z.write('${jsPath}', 'index.js'); z.close()`])
+		if (pyRes.status !== 0) {
+			// Fallback to powershell Compress-Archive
+			spawnSync('powershell', ['-Command', `Compress-Archive -Force -Path '${manifestPath}','${jsPath}' -DestinationPath '${zipPath}'`])
+		}
 	}
 	console.log(`Packaged ${id} -> ${zipPath}`)
 }
 
 console.log('\nGenerating index.json...')
+const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:8080'
 const gen = spawnSync('bun', [
 	'node_modules/@revenge-mod/plugin-cli/src/main.ts',
 	'generate-index',
 	'--dist', DIST_DIR,
-	'--base-url', 'http://192.168.12.237:8080',
+	'--base-url', baseUrl,
 	'--out', join(DIST_DIR, 'index.json'),
 ], { stdio: 'inherit' })
 
