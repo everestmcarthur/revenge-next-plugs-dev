@@ -1,0 +1,173 @@
+name: Build & Publish Plugins
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: docker
+    container:
+      image: ubuntu:22.04
+    timeout-minutes: 60
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git curl ca-certificates gnupg wget unzip ca-certificates-java
+          update-ca-certificates --fresh
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y --no-install-recommends nodejs
+
+      - name: Checkout repository
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git clone "https://x-access-token:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git" .
+          git fetch --depth 1 origin "${{ github.sha }}"
+          git checkout "${{ github.sha }}"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('package.json', 'bun.lockb') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Cache Android SDK
+        id: cache-android
+        uses: actions/cache@v4
+        with:
+          path: /opt/android-sdk
+          key: android-sdk-${{ runner.os }}-37.0.0-bt36-1-bt37-1
+          restore-keys: |
+            android-sdk-${{ runner.os }}-37.0.0-bt36-1-bt37-1-
+
+      - name: Cache JDK 25
+        id: cache-jdk
+        uses: actions/cache@v4
+        with:
+          path: /usr/lib/jvm/temurin-25-jdk-amd64
+          key: temurin-25-jdk-${{ runner.os }}
+          restore-keys: |
+            temurin-25-jdk-${{ runner.os }}-
+
+      - name: Setup JDK 25
+        if: steps.cache-jdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /etc/apt/keyrings
+          wget -qO /etc/apt/keyrings/adoptium.asc https://packages.adoptium.net/artifactory/api/gpg/key/public
+          echo "deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb jammy main" | tee /etc/apt/sources.list.d/adoptium.list
+          apt-get update && apt-get install -y temurin-25-jdk
+
+      - name: Set JAVA_HOME
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          echo "$JAVA_HOME/bin" >> $GITHUB_PATH
+          rm -f "$JAVA_HOME/lib/security/cacerts"
+          cp /etc/ssl/certs/java/cacerts "$JAVA_HOME/lib/security/cacerts"
+
+      - name: Setup Android SDK
+        if: steps.cache-android.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /opt/android-sdk/platforms /opt/android-sdk/build-tools
+          cd /tmp
+          # Direct install; sdkmanager's manifest fetch fails on the runner.
+          wget -q https://dl.google.com/android/repository/platform-37.0_r02.zip
+          wget -q https://dl.google.com/android/repository/build-tools_r36_linux.zip
+          wget -q https://dl.google.com/android/repository/build-tools_r37_linux.zip
+          unzip -q platform-37.0_r02.zip -d /opt/android-sdk/platforms
+          unzip -q build-tools_r36_linux.zip -d /opt/android-sdk/build-tools
+          unzip -q build-tools_r37_linux.zip -d /opt/android-sdk/build-tools
+          mv /opt/android-sdk/build-tools/android-16 /opt/android-sdk/build-tools/36.0.0
+          mv /opt/android-sdk/build-tools/android-37.0 /opt/android-sdk/build-tools/37.0.0
+
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p /opt/android-sdk/licenses
+          echo '24333f8a63b6825ea9c5514f83c2829b004d1fee' > /opt/android-sdk/licenses/android-sdk-license
+
+      - name: Set Android SDK env
+        run: |
+          echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
+
+      - name: Setup Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+
+      - name: Clone revenge-xposed
+        run: |
+          git clone --depth 1 https://github.com/revenge-mod/revenge-xposed.git
+
+      - name: Install dependencies & build plugin-cli
+        env:
+          GITHUB_SERVER_URL: https://github.com
+          GITHUB_API_URL: https://api.github.com
+        run: |
+          bun install
+          cd node_modules/@revenge-mod/plugin-cli
+          bun run build
+
+      - name: Publish revenge-api to Maven Local
+        run: |
+          cd revenge-xposed
+          chmod +x gradlew
+          ./gradlew :api:publishToMavenLocal --no-daemon
+
+      - name: Build plugins
+        env:
+          BASE_URL: ${{ vars.BASE_URL || secrets.BASE_URL || 'https://dev-next.jarviscli.dev' }}
+        run: |
+          chmod +x gradlew
+          ./gradlew packageAllPlugins -PjsToolPath="$(which bun)" --no-daemon || (bun run build && bun run package)
+          bun run generate-index -- --dist build/dist --base-url "${BASE_URL}" --out build/dist/index.json
+
+      - name: Verify dist artifacts
+        run: |
+          echo "Final build/dist/:"
+          ls -la build/dist/
+
+      - name: Deploy to gh-pages branch
+        run: |
+          mkdir -p /tmp/ghpages && cd /tmp/ghpages
+          git init
+          git config user.name 'forgejo-actions[bot]'
+          git config user.email 'noreply@git.gay'
+          git remote add origin "https://x-access-token:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git"
+          git fetch origin gh-pages --depth=1 || true
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            git checkout -b gh-pages origin/gh-pages
+          else
+            git checkout --orphan gh-pages
+          fi
+          DIST_DIR="$GITHUB_WORKSPACE/build/dist"
+          [ -d "$DIST_DIR" ] || DIST_DIR="$GITHUB_WORKSPACE/dist"
+          cp -r "$DIST_DIR/"* .
+          git add -A
+          git diff --cached --quiet || git commit -m "chore: publish plugins [skip ci]"
+          git push origin gh-pages
+
+      - name: Deploy to Cloudflare Workers (if configured)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          bunx wrangler deploy
+          if [ -d "workers/cloudsync" ]; then
+            cd workers/cloudsync
+            bun install
+            bunx wrangler deploy
+          fi
