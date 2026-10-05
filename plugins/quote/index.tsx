@@ -11,6 +11,12 @@ export default plugin<{ jsonStorage: StoredSettings }>({
 	},
 
 	start(api) {
+		if (api.plugin.startedLate) {
+			try {
+				api.plugin.requireReload()
+			} catch {}
+		}
+
 		api.logger?.info?.('[Quote] Starting Make It A Quote...')
 
 		if (api.jsonStorage) {
@@ -27,7 +33,10 @@ export default plugin<{ jsonStorage: StoredSettings }>({
 		try {
 			if (typeof __everest !== 'undefined') everest = __everest
 		} catch {}
-		everest ??= (globalThis as any).__everest ?? rev?.everest
+		everest ??=
+			(api as any).plugin?.api?.unscoped?.everest ??
+			(globalThis as any).__everest ??
+			rev?.everest
 		everest?.setActivePlugin?.(api.plugin.manifest.id)
 		everest?.registerPlugin?.({
 			id: api.plugin.manifest.id,
@@ -50,6 +59,13 @@ export default plugin<{ jsonStorage: StoredSettings }>({
 
 		api.logger?.info?.('[Quote] Started cleanly.')
 	},
-	stop() {},
+
+	stop(ctx?: any) {
+		try {
+			const p = ctx?.plugin ?? ctx
+			p?.requireReload?.()
+		} catch {}
+	},
+
 	SettingsComponent: Settings,
 })

@@ -1,4 +1,4 @@
-export type AssetType = 'emoji' | 'sticker' | 'attachment'
+export type AssetType = 'emoji' | 'sticker' | 'attachment' | 'avatar' | 'banner'
 
 export interface StealableAsset {
 	id: string

@@ -162,6 +162,22 @@ export const settings = Settings
 // Revenge Next plugin API export
 export default plugin({
 	start(api: any) {
+		const everest =
+			api?.plugin?.api?.unscoped?.everest ??
+			(revenge as any)?.everest ??
+			(globalThis as any)?.__everest
+		everest?.setActivePlugin?.(api.plugin.manifest.id)
+		everest?.registerPlugin?.({
+			id: api.plugin.manifest.id,
+			name: api.plugin.manifest.name,
+			icon: api.plugin.manifest.icon,
+			author: api.plugin.manifest.author,
+			description: api.plugin.manifest.description,
+			version: api.plugin.manifest.version,
+			getStatus: () => api.plugin.status,
+			getErrors: () => api.plugin.errors,
+		})
+
 		onLoad()
 		api?.cleanup?.(() => onUnload())
 	},

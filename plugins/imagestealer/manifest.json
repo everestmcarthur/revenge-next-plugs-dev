@@ -5,7 +5,7 @@
 	"description": "Steal custom emojis and stickers from messages and reactions, save to your Cloudflare-synced Vault or Discord servers, and send anywhere without Nitro.",
 	"author": "Rosie",
 	"icon": "DownloadIcon",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"dependencies": {
 		"revenge.api": {
 			"version": ">=1 <2"

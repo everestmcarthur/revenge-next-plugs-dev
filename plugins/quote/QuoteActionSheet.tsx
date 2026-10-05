@@ -254,6 +254,20 @@ export default function QuoteActionSheet({
 
 				{/* Content Customization */}
 				<TableRowGroup title="Customize Content">
+					{Boolean(initialInfo.attachmentUrl) && (
+						<TableSwitchRow
+							label="Use Held Image as Avatar"
+							subLabel="Feature the attached image on the quote card instead of user avatar"
+							value={avatarUrl === initialInfo.attachmentUrl}
+							onValueChange={(val: boolean) => {
+								setAvatarUrl(
+									val
+										? (initialInfo.attachmentUrl as string)
+										: initialInfo.avatarUrl,
+								)
+							}}
+						/>
+					)}
 					<TableSwitchRow
 						label="Custom Quote Mode"
 						subLabel="Edit text, author name, or avatar"

@@ -83,7 +83,7 @@ export default function StealerActionSheet({
 
 	const handleDownload = async (asset: StealableAsset) => {
 		setBusyId(asset.id)
-		await downloadAsset(asset.url, asset.name)
+		await downloadAsset(asset.url, asset.name, asset.animated)
 		setBusyId(null)
 	}
 
@@ -104,12 +104,7 @@ export default function StealerActionSheet({
 	}
 
 	const openServerUpload = (asset: StealableAsset) => {
-		openLazyActionSheet(
-			async () => ({
-				default: (props: any) => <ServerUploadModal {...props} asset={asset} />,
-			}),
-			SERVER_UPLOAD_SHEET_KEY,
-		)
+		openLazyActionSheet(ServerUploadModal, SERVER_UPLOAD_SHEET_KEY, { asset })
 	}
 
 	return (

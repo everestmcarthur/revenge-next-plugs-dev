@@ -12,17 +12,25 @@ function getRevenge(): any {
 	return (globalThis as any).revenge
 }
 
-function getRestApi(): any {
+export function getHTTPUtils(): any {
 	try {
 		const rev = getRevenge()
+		if (typeof rev?.kmmiio?.getHTTPUtils === 'function') {
+			const u = rev.kmmiio.getHTTPUtils()
+			if (u?.post) return u
+		}
 		const finders = rev?.modules?.finders
 		const filters = finders?.filters
 		if (finders?.lookupModule && filters?.withProps) {
-			const mods = finders.lookupModule(filters.withProps('get', 'post', 'del'))
-			if (mods?.[0]) return mods[0]
+			const mods = finders.lookupModule(
+				filters.withProps('getAPIBaseURL', 'get', 'post'),
+			)
+			if (mods?.[0]?.post) return mods[0]
+			const httpMods = finders.lookupModule(filters.withProps('HTTP'))
+			if (httpMods?.[0]?.HTTP?.post) return httpMods[0].HTTP
 		}
 	} catch {}
-	return findByProps('get', 'post', 'del')
+	return findByProps('getAPIBaseURL', 'post')
 }
 
 /**
@@ -99,7 +107,19 @@ export async function urlToDataUri(
 		const reader = new FileReader()
 		reader.onloadend = () => {
 			if (typeof reader.result === 'string') {
-				resolve(reader.result)
+				let dataUri = reader.result
+				if (
+					dataUri.startsWith('data:application/octet-stream;') ||
+					!dataUri.startsWith('data:image/')
+				) {
+					const mime = url.includes('.gif')
+						? 'image/gif'
+						: url.includes('.webp')
+							? 'image/webp'
+							: 'image/png'
+					dataUri = dataUri.replace(/^data:[^;]+;/, `data:${mime};`)
+				}
+				resolve(dataUri)
 			} else {
 				reject(new Error('Failed to convert image to Data URI'))
 			}
@@ -128,13 +148,13 @@ export async function uploadEmojiToGuild(
 		}
 
 		const dataUri = await urlToDataUri(imageUrl, autoCompress)
-		const rest = getRestApi()
+		const http = getHTTPUtils()
 
-		if (!rest?.post) {
-			return { success: false, error: 'Discord REST module not found' }
+		if (!http?.post) {
+			return { success: false, error: 'Discord HTTP module not found' }
 		}
 
-		const result = await rest.post({
+		const result = await http.post({
 			url: `/guilds/${guildId}/emojis`,
 			body: {
 				name: cleanName,
@@ -327,62 +347,82 @@ export function resolveZiplineCredentials(): {
 }
 
 /**
- * Downloads image directly to device or triggers camera roll save.
+ * Downloads image directly to device gallery using Discord's NativeFileModule.
  */
 export async function downloadAsset(
 	url: string,
 	name: string,
+	isAnimated = false,
 ): Promise<boolean> {
 	try {
 		const rev = getRevenge()
-		const finders = rev?.modules?.finders
-		const filters = finders?.filters
+		const tmr =
+			rev?.react?.ReactNative?.TurboModuleRegistry ||
+			rev?.modules?.finders?.lookupModule?.(
+				rev.modules.finders.filters.withProps('TurboModuleRegistry'),
+			)?.[0]?.TurboModuleRegistry
+		const fileMod = tmr?.get?.('NativeFileModule')
 
-		// 1. Try Discord's native media downloader
-		if (finders?.lookupModule && filters?.withProps) {
-			const mods = finders.lookupModule(
-				filters.withProps('saveImage', 'downloadMedia'),
-			)
-			for (const mod of mods) {
-				if (typeof mod?.saveImage === 'function') {
-					try {
-						await mod.saveImage(url)
-						showToast(`Saved ${name} to gallery!`)
-						return true
-					} catch {}
-				}
-				if (typeof mod?.downloadMedia === 'function') {
-					try {
-						await mod.downloadMedia(url)
-						showToast(`Downloaded ${name}!`)
-						return true
-					} catch {}
-				}
+		if (fileMod?.writeFile && fileMod?.saveFileToGallery) {
+			try {
+				const ext = isAnimated ? 'gif' : url.includes('.webp') ? 'webp' : 'png'
+				const mime = isAnimated
+					? 'image/gif'
+					: url.includes('.webp')
+						? 'image/webp'
+						: 'image/png'
+				const cleanName =
+					name.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 32) || 'download'
+				const filename = `${cleanName}_${Date.now()}.${ext}`
+
+				const res = await fetch(url)
+				const blob = await res.blob()
+				const base64 = await new Promise<string>((resolve, reject) => {
+					const reader = new FileReader()
+					reader.onloadend = () => {
+						const data = reader.result as string
+						const b64 = data.includes(',') ? data.split(',')[1] : data
+						resolve(b64)
+					}
+					reader.onerror = reject
+					reader.readAsDataURL(blob)
+				})
+
+				const cachedPath = await fileMod.writeFile(
+					'cache',
+					filename,
+					base64,
+					'base64',
+				)
+				const fileUri =
+					'file://' +
+					(cachedPath.startsWith('/') ? cachedPath : `/${cachedPath}`)
+				await fileMod.saveFileToGallery(fileUri, filename, mime)
+
+				try {
+					await fileMod.removeFile('cache', filename)
+				} catch {}
+
+				showToast({
+					content: `Saved :${name}: to gallery!`,
+					variant: 'success',
+				})
+				return true
+			} catch (err) {
+				console.warn('[ImageStealer] NativeFileModule download failed:', err)
 			}
 		}
 
-		// 2. Try CameraRoll or NativeModules
-		const CameraRoll =
-			rev?.react?.ReactNative?.CameraRoll ||
-			rev?.externals?.CameraRoll ||
-			findByProps('saveToCameraRoll')
-		if (typeof CameraRoll?.save === 'function') {
-			await CameraRoll.save(url)
-			showToast(`Saved ${name} to camera roll!`)
-			return true
-		}
-		if (typeof CameraRoll?.saveToCameraRoll === 'function') {
-			await CameraRoll.saveToCameraRoll(url)
-			showToast(`Saved ${name} to camera roll!`)
-			return true
-		}
-
-		// Fallback: Copy link with message
-		showToast(`Media downloader not available. Link copied for ${name}!`)
-		return false
+		// Fallback: Copy link to clipboard
+		const { copyToClipboard } = await import('./components')
+		copyToClipboard(url, `Copied link for :${name}:!`)
+		return true
 	} catch (e) {
 		console.warn('[ImageStealer] Download error:', e)
-		showToast('Failed to download asset')
+		showToast({
+			content: `Failed to download :${name}:`,
+			variant: 'critical',
+		})
 		return false
 	}
 }

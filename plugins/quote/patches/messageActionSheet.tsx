@@ -1,11 +1,6 @@
 import React from 'react'
 import { checkQuoteAllowed, generateQuoteCard } from '../api'
-import {
-	getActionSheetActionCreators,
-	hideActionSheet,
-	openLazyActionSheet,
-} from '../components'
-import QuoteActionSheet, { ACTION_SHEET_KEY } from '../QuoteActionSheet'
+import { getActionSheetActionCreators, hideActionSheet } from '../components'
 import {
 	extractMessageInfo,
 	extractUserInfo,
@@ -51,88 +46,172 @@ function getQuoteIconAsset(): any {
 interface TargetData {
 	message?: any
 	user?: any
+	attachment?: any
 	channelId?: string
 }
 
-async function executeQuoteAction(targetData: TargetData): Promise<void> {
+let activeTargetContext: TargetData | null = null
+
+function updateActiveContext(data: Partial<TargetData>) {
+	if (!activeTargetContext) {
+		activeTargetContext = {
+			channelId: getSelectedChannelIdSafe(),
+		}
+	}
+	if (data.message) activeTargetContext.message = data.message
+	if (data.user) activeTargetContext.user = data.user
+	if (data.attachment) activeTargetContext.attachment = data.attachment
+	const currentChan = getSelectedChannelIdSafe()
+	activeTargetContext.channelId =
+		currentChan || data.channelId || activeTargetContext.channelId
+}
+
+function getActiveContext(): TargetData {
+	const currentChan = getSelectedChannelIdSafe()
+	return {
+		...(activeTargetContext || {}),
+		channelId: currentChan || activeTargetContext?.channelId || '',
+	}
+}
+
+async function executeQuoteAction(
+	targetDataResolver?: () => TargetData,
+): Promise<void> {
 	try {
 		hideActionSheet()
 	} catch {}
 
 	try {
-		const channelId = targetData.channelId || getSelectedChannelIdSafe() || ''
-		let info: ExtractedMessageInfo
+		const targetData = targetDataResolver
+			? targetDataResolver()
+			: getActiveContext()
+		const currentChannelId =
+			getSelectedChannelIdSafe() ||
+			targetData.channelId ||
+			targetData.message?.channel_id ||
+			''
+
+		let info: ExtractedMessageInfo | undefined
 
 		if (targetData.message) {
-			info = extractMessageInfo(targetData.message, channelId)
+			info = extractMessageInfo(
+				targetData.message,
+				currentChannelId,
+				targetData.attachment,
+			)
 		} else if (targetData.user) {
-			info = extractUserInfo(targetData.user, channelId)
+			info = extractUserInfo(targetData.user, currentChannelId)
 		} else {
-			showToast('No message or user found to quote')
-			return
+			// Fallback: check MessageStore for current channel's last message
+			const rev = getRevenge()
+			const store =
+				rev?.everest?.getMessageStore?.() ||
+				rev?.modules?.finders?.lookupModule?.(
+					rev?.modules?.finders?.filters?.withProps?.('getMessages'),
+				)?.[0]
+			if (currentChannelId && store?.getMessages) {
+				const msgs = store.getMessages(currentChannelId)
+				const list = msgs?.toArray
+					? msgs.toArray()
+					: msgs?._array || (Array.isArray(msgs) ? msgs : [])
+				if (list.length > 0) {
+					info = extractMessageInfo(
+						list[list.length - 1],
+						currentChannelId,
+						targetData.attachment,
+					)
+				}
+			}
+			if (!info) {
+				showToast('No message or user found to quote')
+				return
+			}
 		}
 
 		const s = getStoredSettings()
-		const shouldAutoSend = s?.instantQuote !== false
-
-		if (!shouldAutoSend) {
-			setTimeout(() => {
-				openLazyActionSheet(
-					() => React.createElement(QuoteActionSheet, { initialInfo: info }),
-					ACTION_SHEET_KEY,
-					{},
-				)
-			}, 150)
-			return
-		}
-
-		// Auto-send mode
-		showToast('Generating quote...')
 		const def = s.defaultSettings ?? defaultSettings.defaultSettings
 
-		// Run permission check and card generation in parallel for maximum speed
-		const checkPromise = checkQuoteAllowed(
-			info.targetUserId,
-			info.hasSpoilers,
-			false,
-		)
+		const generateAndHandle = async (action: 'send' | 'copy') => {
+			showToast({ content: 'Generating quote...', variant: 'info' })
 
-		const cardPromise = generateQuoteCard({
-			text: info.text || '...',
-			avatar: info.avatarUrl,
-			username: info.username,
-			display_name: info.displayName,
-			color: Boolean(def.color),
-			watermark: def.watermark ? def.watermarkText || 'Make It A Quote' : '',
-			bold: Boolean(def.bold),
-			light: Boolean(def.light),
-			flip: Boolean(def.flip),
-			new: Boolean(def.new),
-			gif: Boolean(def.gif),
-		})
-
-		const [check, res] = await Promise.all([checkPromise, cardPromise])
-
-		if (!check.allowed) {
-			showToast(
-				check.reason || 'This user has disallowed quotes of their messages.',
+			const checkPromise = checkQuoteAllowed(
+				info!.targetUserId,
+				info!.hasSpoilers,
+				false,
 			)
+
+			const cardPromise = generateQuoteCard({
+				text: info!.text || '...',
+				avatar: info!.avatarUrl,
+				username: info!.username,
+				display_name: info!.displayName,
+				color: Boolean(def.color),
+				watermark: def.watermark ? def.watermarkText || 'Make It A Quote' : '',
+				bold: Boolean(def.bold),
+				light: Boolean(def.light),
+				flip: Boolean(def.flip),
+				new: Boolean(def.new),
+				gif: Boolean(def.gif),
+			})
+
+			const [check, res] = await Promise.all([checkPromise, cardPromise])
+
+			if (!check.allowed) {
+				showToast({
+					content:
+						check.reason ||
+						'This user has disallowed quotes of their messages.',
+					variant: 'critical',
+				})
+				return
+			}
+
+			if (res.success && res.url) {
+				const finalUrl = res.ziplineUrl || res.url
+				if (action === 'send') {
+					sendQuoteToChannel(currentChannelId, finalUrl)
+					showToast({ content: 'Quote sent!', variant: 'success' })
+				} else {
+					copyToClipboard(finalUrl)
+				}
+			} else {
+				showToast({
+					content: res.error || 'Failed to generate quote',
+					variant: 'critical',
+				})
+			}
+		}
+
+		if (s?.instantQuote !== false) {
+			await generateAndHandle('send')
 			return
 		}
 
-		if (res.success && res.url) {
-			const finalUrl = res.ziplineUrl || res.url
-			sendQuoteToChannel(info.channelId, finalUrl)
-		} else {
-			showToast(res.error || 'Failed to generate quote')
-		}
+		// Non-instant mode: use Discord native Alert
+		const rev = getRevenge()
+		const Alert = rev?.react?.ReactNative?.Alert
+		Alert?.alert(
+			'Make it a Quote',
+			`Quote by ${info.displayName || info.username}`,
+			[
+				{
+					text: 'Send Quote',
+					onPress: () => generateAndHandle('send'),
+				},
+				{
+					text: 'Copy URL',
+					onPress: () => generateAndHandle('copy'),
+				},
+				{ text: 'Cancel', style: 'cancel' },
+			],
+		)
 	} catch (err) {
 		console.error('[Quote] Auto-send quote failed:', err)
-		showToast('Failed to create quote')
+		showToast({ content: 'Failed to create quote', variant: 'critical' })
 	}
 }
 
-function buildQuoteRow(targetData: TargetData): any {
+function buildQuoteRow(targetDataResolver: () => TargetData): any {
 	const ActionSheetRow = getActionSheetRow()
 	if (!ActionSheetRow) return null
 
@@ -146,13 +225,13 @@ function buildQuoteRow(targetData: TargetData): any {
 		key: 'make-it-a-quote',
 		label: 'Make it a Quote',
 		icon,
-		onPress: () => executeQuoteAction(targetData),
+		onPress: () => executeQuoteAction(targetDataResolver),
 	})
 }
 
 function injectIntoActionGroups(
 	actionGroups: any[],
-	targetData: TargetData,
+	targetDataResolver: () => TargetData,
 ): boolean {
 	if (!Array.isArray(actionGroups) || actionGroups.length === 0) return false
 
@@ -169,7 +248,7 @@ function injectIntoActionGroups(
 	)
 	if (hasRow) return true
 
-	const row = buildQuoteRow(targetData)
+	const row = buildQuoteRow(targetDataResolver)
 	if (!row) return false
 
 	// Strategy A: If actionGroups contains groups whose props.children is an array (Rosie's view-raw pattern)
@@ -244,18 +323,33 @@ export function patchMessageActionSheet(): () => void {
 				'GuildProfileActionSheet',
 				'UserProfileSheet',
 				'UserProfileModalActionSheet',
+				'MediaViewerActionSheet',
+				'MediaActionSheet',
+				'MediaLongPressActionSheet',
+				'AttachmentActionSheet',
+				'ImageActionSheet',
 			]
 			for (const name of sheetNames) {
 				const unsub = tralwdwdd.registerActionSheetPatch(
 					name,
 					(actionGroups: any, props: any) => {
 						try {
-							const message = props?.message
+							const message =
+								props?.message ||
+								props?.channelMessage ||
+								props?.targetMessage ||
+								props?.item?.message ||
+								props?.attachment?.message
 							const user = props?.user || props?.userId || props?.member
+							const attachment =
+								props?.item || props?.attachment || props?.media
 							const channelId =
+								getSelectedChannelIdSafe() ||
 								props?.channel?.id ||
-								message?.channel_id ||
-								getSelectedChannelIdSafe()
+								props?.channelId ||
+								message?.channel_id
+
+							updateActiveContext({ message, user, attachment, channelId })
 
 							if (message) {
 								if (!isSentMessage(message)) return
@@ -264,9 +358,9 @@ export function patchMessageActionSheet(): () => void {
 									!USER_MESSAGE_TYPES.has(message.type)
 								)
 									return
-								injectIntoActionGroups(actionGroups, { message, channelId })
-							} else if (user) {
-								injectIntoActionGroups(actionGroups, { user, channelId })
+								injectIntoActionGroups(actionGroups, getActiveContext)
+							} else if (user || attachment) {
+								injectIntoActionGroups(actionGroups, getActiveContext)
 							}
 						} catch (e) {
 							console.error('[Quote] tralwdwdd patch error:', e)
@@ -297,7 +391,12 @@ export function patchMessageActionSheet(): () => void {
 					if (/channel|forum|guild-action-sheet-leave/i.test(strKey))
 						return args
 
-					const message = data?.message
+					const message =
+						data?.message ||
+						data?.channelMessage ||
+						data?.targetMessage ||
+						data?.item?.message ||
+						data?.attachment?.message
 					let user = data?.user || data?.userId || data?.member
 					const userIdFromKey = strKey.match(
 						/(?:UserProfile|UserActionSheet)(\d+)/i,
@@ -306,53 +405,111 @@ export function patchMessageActionSheet(): () => void {
 						user = userIdFromKey
 					}
 
+					const attachment = data?.item || data?.attachment || data?.media
 					const channelId =
-						message?.channel_id ||
+						getSelectedChannelIdSafe() ||
 						data?.channel?.id ||
-						getSelectedChannelIdSafe()
+						data?.channelId ||
+						message?.channel_id
 
-					const isMessage = Boolean(message) || /message/i.test(strKey)
+					// FRESH UPDATE every time openLazy is called!
+					activeTargetContext = {
+						message: message || undefined,
+						user: user || undefined,
+						attachment: attachment || undefined,
+						channelId,
+					}
+
+					const isMessage =
+						Boolean(message) ||
+						Boolean(attachment) ||
+						/message|media|attachment|image/i.test(strKey)
 					const isUser = Boolean(user) || /user|profile|overflow/i.test(strKey)
 
 					if (!isMessage && !isUser) return args
 
-					const targetData: TargetData = {
-						message: message || undefined,
-						user: user || undefined,
-						channelId,
-					}
-
-					componentPromise.then((instance: any) => {
-						if (!instance || instance.__quotePatched) return
-						instance.__quotePatched = true
+					args[0] = componentPromise.then((instance: any) => {
+						if (!instance) return instance
 
 						const isMemo =
 							typeof instance.default === 'object' && instance.default !== null
 						const target = isMemo ? instance.default : instance
 						const prop = isMemo ? 'type' : 'default'
 
-						if (typeof target[prop] !== 'function') return
+						if (typeof target[prop] !== 'function') return instance
+						if (instance.__quotePatched) return instance
+						instance.__quotePatched = true
 
+						// 1. Hook target[prop] BEFORE to capture props of THIS specific render
+						if (patcher?.before) {
+							const unpatchBefore = patcher.before(
+								target,
+								prop,
+								(compArgs: any[]) => {
+									try {
+										const compProps = compArgs?.[0]
+										if (compProps) {
+											const pMsg =
+												compProps.message ||
+												compProps.channelMessage ||
+												compProps.targetMessage ||
+												compProps.item?.message ||
+												compProps.attachment?.message
+											const pUser =
+												compProps.user ||
+												compProps.userId ||
+												compProps.member ||
+												compProps.author
+											const pAtt =
+												compProps.item ||
+												compProps.attachment ||
+												compProps.media
+											const pChan =
+												getSelectedChannelIdSafe() ||
+												compProps.channel?.id ||
+												compProps.channelId ||
+												pMsg?.channel_id
+
+											updateActiveContext({
+												message: pMsg,
+												user: pUser,
+												attachment: pAtt,
+												channelId: pChan,
+											})
+										}
+									} catch (e) {
+										console.error('[Quote] sheet render before hook error:', e)
+									}
+									return compArgs
+								},
+							)
+							patches.push(unpatchBefore)
+						}
+
+						// 2. Hook target[prop] AFTER to inject the quote row
 						const unpatchTarget = patcher.after(target, prop, (comp: any) => {
 							if (!comp) return comp
 
 							try {
-								// Resolve any late-bound user or message from comp.props
 								const lateUser =
 									comp?.props?.user ||
 									comp?.props?.userId ||
 									comp?.props?.member ||
 									comp?.props?.author
-								if (lateUser && !targetData.user) {
-									targetData.user = lateUser
-								}
 								const lateMessage =
 									comp?.props?.message || comp?.props?.channelMessage
-								if (lateMessage && !targetData.message) {
-									targetData.message = lateMessage
+								const lateAtt = comp?.props?.item || comp?.props?.attachment
+
+								if (lateMessage || lateUser || lateAtt) {
+									updateActiveContext({
+										message: lateMessage,
+										user: lateUser,
+										attachment: lateAtt,
+										channelId: getSelectedChannelIdSafe(),
+									})
 								}
 
-								// 1. Check for options list (UserProfileOverflow / ContextMenu)
+								// 1. Options list (UserProfileOverflow / ContextMenu)
 								const options =
 									comp?.props?.options || comp?.props?.content?.props?.options
 								if (Array.isArray(options)) {
@@ -361,13 +518,13 @@ export function patchMessageActionSheet(): () => void {
 									) {
 										options.push({
 											label: 'Make it a Quote',
-											onPress: () => executeQuoteAction(targetData),
+											onPress: () => executeQuoteAction(getActiveContext),
 										})
 									}
 									return comp
 								}
 
-								// 2. Check for items list (UserProfileOverflowMenu)
+								// 2. Items list (UserProfileOverflowMenu)
 								const items =
 									comp?.props?.items || comp?.props?.children?.props?.items
 								if (Array.isArray(items)) {
@@ -375,7 +532,7 @@ export function patchMessageActionSheet(): () => void {
 									if (!list.some((o: any) => o?.label === 'Make it a Quote')) {
 										list.push({
 											label: 'Make it a Quote',
-											action: () => executeQuoteAction(targetData),
+											action: () => executeQuoteAction(getActiveContext),
 										})
 									}
 									return comp
@@ -397,18 +554,18 @@ export function patchMessageActionSheet(): () => void {
 											)),
 								)
 								if (Array.isArray(groups)) {
-									injectIntoActionGroups(groups, targetData)
+									injectIntoActionGroups(groups, getActiveContext)
 									return comp
 								}
 
-								// 2. Recursive search children
+								// 4. Recursive search children
 								const children = searchChildren(comp)
 								if (children && Array.isArray(children)) {
-									injectIntoActionGroups(children, targetData)
+									injectIntoActionGroups(children, getActiveContext)
 									return comp
 								}
 
-								// 3. Bleelblep's single group fallback
+								// 5. Single group fallback
 								const isRowGroup = (node: any) => {
 									const t = node?.type
 									const n =
@@ -428,7 +585,7 @@ export function patchMessageActionSheet(): () => void {
 								})
 
 								if (groupParent) {
-									const row = buildQuoteRow(targetData)
+									const row = buildQuoteRow(getActiveContext)
 									if (row) {
 										const ActionSheetRow = getActionSheetRow()
 										const Group = ActionSheetRow?.Group
@@ -455,6 +612,7 @@ export function patchMessageActionSheet(): () => void {
 						})
 
 						patches.push(unpatchTarget)
+						return instance
 					})
 				} catch (err) {
 					console.error('[Quote] openLazy hook error:', err)

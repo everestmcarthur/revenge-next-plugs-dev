@@ -7,39 +7,9 @@ function getRevenge(): any {
 	return (globalThis as any).revenge
 }
 
-export function showToast(message: string): void {
-	try {
-		const rev = getRevenge()
-		if (typeof rev?.toasts?.show === 'function') {
-			try {
-				rev.toasts.show({ title: message })
-				return
-			} catch {
-				try {
-					rev.toasts.show(message)
-					return
-				} catch {}
-			}
-		}
+import { showToast } from './toast'
 
-		const finders = rev?.modules?.finders
-		const filters = finders?.filters
-		if (finders?.lookupModule && filters?.withProps) {
-			const toastMod = finders.lookupModule(filters.withProps('showToast'))?.[0]
-			if (typeof toastMod?.showToast === 'function') {
-				toastMod.showToast(message)
-				return
-			}
-			const toastActionMod = finders.lookupModule(
-				filters.withProps('open', 'close'),
-			)?.[0]
-			if (typeof toastActionMod?.open === 'function') {
-				toastActionMod.open({ content: message })
-				return
-			}
-		}
-	} catch {}
-}
+export { showToast }
 
 export function copyToClipboard(text: string): boolean {
 	try {
@@ -115,7 +85,8 @@ export function sendQuoteToChannel(
 	rawChannelId: string,
 	quoteUrl: string,
 ): boolean {
-	const channelId = rawChannelId || getSelectedChannelIdSafe()
+	const currentChannel = getSelectedChannelIdSafe()
+	const channelId = currentChannel || rawChannelId
 	if (!channelId || !quoteUrl) {
 		showToast('Failed to send quote: Missing channel ID or URL')
 		return false
@@ -198,6 +169,7 @@ export interface ExtractedMessageInfo {
 	hasSpoilers: boolean
 	roleColor?: string
 	replyAuthor?: string
+	attachmentUrl?: string
 }
 
 /**
@@ -206,6 +178,7 @@ export interface ExtractedMessageInfo {
 export function extractMessageInfo(
 	message: any,
 	channelId?: string,
+	heldAttachment?: any,
 ): ExtractedMessageInfo {
 	const rev = getRevenge()
 	const GuildMemberStore =
@@ -249,10 +222,26 @@ export function extractMessageInfo(
 		avatarUrl = avatarUrl.replace('.webp', '.png')
 	}
 
+	// Extract attachment URL if available (held image or message attachment)
+	let attachmentUrl: string | undefined
+	if (heldAttachment?.url) {
+		attachmentUrl = heldAttachment.url
+	} else if (heldAttachment?.proxy_url) {
+		attachmentUrl = heldAttachment.proxy_url
+	} else if (message?.attachments?.length) {
+		attachmentUrl =
+			message.attachments[0].url || message.attachments[0].proxy_url
+	}
+
 	// Extract text content or attachment fallback
 	let text = message?.content || ''
-	if (!text && message?.attachments?.length) {
-		text = message.attachments[0].filename || '[Attachment]'
+	if (!text && heldAttachment) {
+		text = heldAttachment.description || heldAttachment.filename || '[Image]'
+	} else if (!text && message?.attachments?.length) {
+		text =
+			message.attachments[0].description ||
+			message.attachments[0].filename ||
+			'[Image]'
 	} else if (!text && message?.sticker_items?.length) {
 		text = `:${message.sticker_items[0].name}:`
 	}
@@ -279,8 +268,13 @@ export function extractMessageInfo(
 		)
 	const hasSpoilers = hasSpoilerSyntax || hasSpoilerAttachment
 
+	const currentChannel = getSelectedChannelIdSafe()
 	const finalChannelId =
-		channelId || message?.channel_id || message?.channelId || ''
+		currentChannel ||
+		channelId ||
+		message?.channel_id ||
+		message?.channelId ||
+		''
 
 	return {
 		text,
@@ -292,20 +286,26 @@ export function extractMessageInfo(
 		hasSpoilers,
 		roleColor,
 		replyAuthor,
+		attachmentUrl,
 	}
 }
 
 export function getSelectedChannelIdSafe(): string {
 	try {
 		const rev = getRevenge()
-		const sel =
+		const store =
 			rev?.everest?.getSelectedChannelStore?.() ||
-			findByProps('getLastSelectedChannelId') ||
-			findByProps('getChannelId')
-		return sel?.getLastSelectedChannelId?.() || sel?.getChannelId?.() || ''
-	} catch {
-		return ''
-	}
+			rev?.modules?.finders?.lookupModule?.(
+				rev.modules.finders.filters.withProps(
+					'getChannelId',
+					'getVoiceChannelId',
+				),
+			)?.[0] ||
+			findByProps('getChannelId', 'getVoiceChannelId')
+		const id = store?.getChannelId?.() || store?.getVoiceChannelId?.()
+		if (id && typeof id === 'string') return id
+	} catch {}
+	return ''
 }
 
 /**

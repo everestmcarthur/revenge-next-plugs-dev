@@ -18,7 +18,10 @@ export default plugin<{ jsonStorage: BetterInboxStorage }>({
 			} catch {}
 		}
 
-		const everest = (globalThis as any).__everest
+		const everest =
+			(api as any).plugin?.api?.unscoped?.everest ??
+			(revenge as any)?.everest ??
+			(globalThis as any)?.__everest
 		everest?.setActivePlugin?.(api.plugin.manifest.id)
 		everest?.registerPlugin?.({
 			id: api.plugin.manifest.id,

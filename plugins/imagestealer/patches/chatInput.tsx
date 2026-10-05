@@ -56,12 +56,7 @@ function getVaultIconAsset(): any {
 }
 
 export function openVaultPicker(): void {
-	openLazyActionSheet(
-		async () => ({
-			default: (props: any) => <VaultPickerActionSheet {...props} />,
-		}),
-		VAULT_PICKER_SHEET_KEY,
-	)
+	openLazyActionSheet(VaultPickerActionSheet, VAULT_PICKER_SHEET_KEY)
 }
 
 export function patchChatInput(): () => void {

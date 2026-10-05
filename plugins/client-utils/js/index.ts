@@ -22,7 +22,10 @@ export default plugin({
 		setupHooks({ cleanup: api.cleanup, logger: api.logger })
 		registerBuiltinCommands()
 
-		const everest = (globalThis as any).__everest ?? (globalThis as any).revenge?.everest
+		const everest =
+			(api as any).plugin?.api?.unscoped?.everest ??
+			(revenge as any)?.everest ??
+			(globalThis as any)?.__everest
 		everest?.setActivePlugin?.(api.plugin.manifest.id)
 		everest?.registerPlugin?.({
 			id: api.plugin.manifest.id,

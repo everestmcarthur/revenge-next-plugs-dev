@@ -12,6 +12,16 @@ export const getGuildMemberStore = createStoreGetter('GuildMemberStore')
 export const getGuildMemberCountStore = createStoreGetter(
 	'GuildMemberCountStore',
 )
+export const getGuildHeaderCountsStore = createStoreGetter(
+	'GuildHeaderCountsStore',
+)
+export const getBasicGuildStore = createStoreGetter('BasicGuildStore')
 export const getRelationshipStore = createStoreGetter('RelationshipStore')
 export const getMessageStore = createStoreGetter('MessageStore')
+export const getMessageReactionsStore = createStoreGetter(
+	'MessageReactionsStore',
+)
 export const getThemeStore = createStoreGetter('ThemeStore')
+export const getPermissionStore = createStoreGetter('PermissionStore')
+export const getGuildEmojiStore = createStoreGetter('GuildEmojiStore')
+export const getEmojiStore = createStoreGetter('EmojiStore')

@@ -12,6 +12,9 @@
 		},
 		"discord": {
 			"version": "*"
+		},
+		"dev.everestmcarthur.lib": {
+			"version": ">=1.0.0"
 		}
 	},
 	"dist": {

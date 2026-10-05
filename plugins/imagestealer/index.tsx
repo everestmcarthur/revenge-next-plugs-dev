@@ -19,6 +19,12 @@ export default plugin<{ jsonStorage: StoredSettings }>({
 	},
 
 	start(api) {
+		if (api.plugin.startedLate) {
+			try {
+				api.plugin.requireReload()
+			} catch {}
+		}
+
 		api.logger?.info?.('[ImageStealer] Starting ImageStealer...')
 
 		if (api.jsonStorage) {
@@ -84,6 +90,12 @@ export default plugin<{ jsonStorage: StoredSettings }>({
 		api.logger?.info?.('[ImageStealer] Started cleanly.')
 	},
 
-	stop() {},
+	stop(ctx?: any) {
+		try {
+			const p = ctx?.plugin ?? ctx
+			p?.requireReload?.()
+		} catch {}
+	},
+
 	SettingsComponent: Settings,
 })

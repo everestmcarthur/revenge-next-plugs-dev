@@ -7,7 +7,10 @@ export default plugin({
 	start(api) {
 		const cleanups: Array<() => void> = []
 
-		const everest = (globalThis as any).__everest ?? (revenge as any)?.everest
+		const everest =
+			(api as any).plugin?.api?.unscoped?.everest ??
+			(revenge as any)?.everest ??
+			(globalThis as any)?.__everest
 		everest?.setActivePlugin?.(api.plugin.manifest.id)
 		everest?.registerPlugin?.({
 			id: api.plugin.manifest.id,

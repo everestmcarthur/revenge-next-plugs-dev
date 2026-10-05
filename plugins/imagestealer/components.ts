@@ -84,6 +84,14 @@ export const FormRow = createLazyComponent('FormRow')
 
 export function getActionSheetActionCreators(): any {
 	try {
+		const rev = getRevenge()
+		if (typeof rev?.everest?.getActionSheetActionCreators === 'function') {
+			const res = rev.everest.getActionSheetActionCreators()
+			if (res) return res
+		}
+		if (rev?.discord?.actions?.ActionSheetActionCreators) {
+			return rev.discord.actions.ActionSheetActionCreators
+		}
 		const imported = findByImportedPath(
 			'modules/action_sheet/native/ActionSheetActionCreators.tsx',
 		)
@@ -97,64 +105,58 @@ export function getActionSheetActionCreators(): any {
 }
 
 export function openLazyActionSheet(
-	renderAsync: () => Promise<{ default: React.ComponentType<any> }>,
+	component: any,
 	key: string,
-	data?: any,
+	data: any = {},
 ): void {
 	try {
+		const rev = getRevenge()
+		if (typeof rev?.everest?.openLazyActionSheet === 'function') {
+			rev.everest.openLazyActionSheet(component, key, data)
+			return
+		}
 		const actions = getActionSheetActionCreators()
 		if (actions?.openLazy) {
-			actions.openLazy(renderAsync(), key, data)
+			const promise =
+				component instanceof Promise
+					? component
+					: Promise.resolve(
+							typeof component === 'object' && component !== null && 'default' in component
+								? component
+								: { default: component },
+						)
+			actions.openLazy(promise, key, data)
+		} else if (actions?.showActionSheet) {
+			actions.showActionSheet({
+				key,
+				content: React.createElement(component, data),
+			})
 		}
 	} catch (e) {
 		console.error('[ImageStealer] Error opening lazy action sheet:', e)
 	}
 }
 
-export function hideActionSheet(key: string): void {
+export function hideActionSheet(key?: string): void {
 	try {
+		const rev = getRevenge()
+		if (typeof rev?.everest?.closeActionSheet === 'function') {
+			rev.everest.closeActionSheet(key)
+			return
+		}
 		const actions = getActionSheetActionCreators()
 		if (typeof actions?.hideActionSheet === 'function') {
 			actions.hideActionSheet(key)
+		} else if (typeof actions?.close === 'function') {
+			actions.close(key)
 		}
 	} catch (e) {
 		console.error('[ImageStealer] Error closing action sheet:', e)
 	}
 }
 
-export function showToast(message: string): void {
-	try {
-		const rev = getRevenge()
-		if (typeof rev?.toasts?.show === 'function') {
-			try {
-				rev.toasts.show({ title: message })
-				return
-			} catch {
-				try {
-					rev.toasts.show(message)
-					return
-				} catch {}
-			}
-		}
-
-		const finders = rev?.modules?.finders
-		const filters = finders?.filters
-		if (finders?.lookupModule && filters?.withProps) {
-			const toastMod = finders.lookupModule(filters.withProps('showToast'))?.[0]
-			if (typeof toastMod?.showToast === 'function') {
-				toastMod.showToast(message)
-				return
-			}
-			const toastActionMod = finders.lookupModule(
-				filters.withProps('open', 'close'),
-			)?.[0]
-			if (typeof toastActionMod?.open === 'function') {
-				toastActionMod.open({ content: message })
-				return
-			}
-		}
-	} catch {}
-}
+export { showToast } from './toast'
+export type { ToastOptions, ToastVariant } from './toast'
 
 export function copyToClipboard(
 	text: string,

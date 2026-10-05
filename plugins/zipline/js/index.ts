@@ -76,10 +76,30 @@ export default plugin<{ jsonStorage: ZiplineStorage }>({
 	},
 
 	start(api) {
+		const everest =
+			(api as any).plugin?.api?.unscoped?.everest ??
+			(revenge as any)?.everest ??
+			(globalThis as any)?.__everest
+		everest?.setActivePlugin?.(api.plugin.manifest.id)
+		everest?.registerPlugin?.({
+			id: api.plugin.manifest.id,
+			name: api.plugin.manifest.name,
+			icon: api.plugin.manifest.icon,
+			author: api.plugin.manifest.author,
+			description: api.plugin.manifest.description,
+			version: api.plugin.manifest.version,
+			getStatus: () => api.plugin.status,
+			getErrors: () => api.plugin.errors,
+		})
+
 		const cleanups: Array<() => void> = []
 
 		const showToast = (content: string, key = 'zipline-toast') => {
 			try {
+				if (typeof everest?.showToast === 'function') {
+					everest.showToast({ key, content })
+					return
+				}
 				revenge.discord.actions.ToastActionCreators?.open?.({ key, content })
 			} catch {}
 		}

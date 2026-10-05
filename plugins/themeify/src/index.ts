@@ -17,6 +17,22 @@ export default plugin<{ jsonStorage: ThemeifyStorage }>({
 			} catch {}
 		}
 
+		const everest =
+			plugin?.api?.unscoped?.everest ??
+			(revenge as any)?.everest ??
+			(globalThis as any)?.__everest
+		everest?.setActivePlugin?.(plugin.manifest.id)
+		everest?.registerPlugin?.({
+			id: plugin.manifest.id,
+			name: plugin.manifest.name,
+			icon: plugin.manifest.icon,
+			author: plugin.manifest.author,
+			description: plugin.manifest.description,
+			version: plugin.manifest.version,
+			getStatus: () => plugin.status,
+			getErrors: () => plugin.errors,
+		})
+
 		const loaderCleanup = initLoader(jsonStorage)
 		cleanup(loaderCleanup)
 
