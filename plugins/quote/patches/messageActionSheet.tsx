@@ -297,8 +297,10 @@ function searchChildren(node: any): any[] | null {
 			const hasRow = node.props.children.some(
 				(c: any) =>
 					c?.type?.name === 'ActionSheetRow' ||
-					typeof c?.props?.label === 'string' ||
-					typeof c?.props?.onPress === 'function',
+					c?.type?.displayName === 'ActionSheetRow' ||
+					(typeof c?.props?.label === 'string' &&
+						(typeof c?.props?.onPress === 'function' ||
+							typeof c?.props?.action === 'function')),
 			)
 			if (hasRow) return node.props.children
 		}
@@ -390,6 +392,14 @@ export function patchMessageActionSheet(): () => void {
 					const strKey = String(key || '')
 					if (/channel|forum|guild-action-sheet-leave/i.test(strKey))
 						return args
+
+					// Never hook full UserProfile sheet / modal screens (only hook action sheets and overflow menus)
+					if (
+						/UserProfile(Modal|Sheet)?\d*$/i.test(strKey) &&
+						!/overflow|action|context|menu/i.test(strKey)
+					) {
+						return args
+					}
 
 					const message =
 						data?.message ||
